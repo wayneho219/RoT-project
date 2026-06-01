@@ -1,0 +1,7 @@
+state=IDLE error=0x00000000
+state=READING error=0x00000000
+state=VERIFYING error=0x00000000
+state=ERROR error=0x0000E001
+next after error: 0
+state=ERROR error=0x0000E001
+state=DONE error=0x00000000

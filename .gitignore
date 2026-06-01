@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Obsidian
+.obsidian/workspace.json
+
+# 編譯產物（嵌入式）
+*.o
+*.elf
+*.bin
+*.map
+*.lst
+c-language/practice/module-*/ex[0-9][0-9]
+c-language/practice/module-*/ex[0-9][0-9].out
+c-language/practice/module-*/ex[0-9][0-9].dSYM/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Yocto build 產物（太大，不 commit）
+yocto/build/
