@@ -1,0 +1,4 @@
+magic=0xA5
+version=2
+flags=0x0182
+load_address=0x20000000
