@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     'module-01/ex06.out'
+relocations:     []
+...

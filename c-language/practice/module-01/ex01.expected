@@ -1,0 +1,4 @@
+a = 255, size = 1 bytes
+b = 65535, size = 2 bytes
+c = 0xDEADBEEF, size = 4 bytes
+d = -1, size = 4 bytes
