@@ -1,8 +1,0 @@
-serialized: A5 02 01 82 00 80 01 00 EF BE AD DE
-magic=0xA5
-version=2.1
-flags=0x82
-image_size=0x00018000
-crc32=0xDEADBEEF
-valid=1
-bad_valid=0

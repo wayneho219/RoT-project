@@ -1,5 +1,0 @@
-set   bit3: 0x08
-set   bit7: 0x88
-clear bit3: 0x80
-toggle bit7: 0x00
-bit1=1 bit2=0 bit3=1
