@@ -31,11 +31,19 @@ uint32_t gpio_set_mode(uint32_t moder, uint8_t pin, uint8_t mode) {
      *   mask  = 0x3 << shift
      *   先清除，再寫入
      */
+    uint32_t shift = pin * 2;
+    uint32_t mask = 0x3U << shift;
+    moder &= ~mask;
+    moder |= (uint32_t)mode << shift;
+    return moder;
 }
 
 /* TODO */
 uint8_t gpio_get_mode(uint32_t moder, uint8_t pin) {
-    /* ... */
+    uint32_t shift = pin * 2;
+    uint32_t mask = 0x3U << shift;
+    uint8_t mode = (uint8_t)((moder & mask) >> shift);
+    return mode;
 }
 
 int main(void) {
