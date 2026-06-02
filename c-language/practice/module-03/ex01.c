@@ -11,22 +11,22 @@
 
 /* TODO: 設定 bit n 為 1 */
 uint32_t set_bit(uint32_t reg, uint8_t n) {
-    /* ... */
+    return reg | (1 << n);
 }
 
 /* TODO: 清除 bit n 為 0 */
 uint32_t clear_bit(uint32_t reg, uint8_t n) {
-    /* ... */
+    return reg & ~(1 << n);
 }
 
 /* TODO: 切換 bit n（0→1，1→0）*/
 uint32_t toggle_bit(uint32_t reg, uint8_t n) {
-    /* ... */
+    return reg ^ (1 << n);
 }
 
 /* TODO: 回傳 bit n 的值（0 或 1）*/
 uint8_t check_bit(uint32_t reg, uint8_t n) {
-    /* ... */
+    return (reg >> n) & 1;
 }
 
 int main(void) {

@@ -29,7 +29,10 @@ typedef struct {
 /* TODO */
 FirmwareHeader parse_header(uint32_t word) {
     FirmwareHeader h;
-    /* ... */
+    h.checksum = word & 0xFF;
+    h.flags = (word >> 8) & 0xFF;
+    h.version = (word >> 16) & 0xFF;
+    h.magic = (word >> 24) & 0xFF;
     return h;
 }
 
@@ -37,6 +40,8 @@ FirmwareHeader parse_header(uint32_t word) {
 uint32_t build_header(uint8_t magic, uint8_t version,
                       uint8_t flags, uint8_t checksum) {
     /* ... */
+    uint32_t word = (magic << 24 | version << 16 | flags << 8 | checksum);
+    return word;
 }
 
 int main(void) {
