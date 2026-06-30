@@ -7,16 +7,35 @@ week: "3-4"
 
 ## 核心概念
 
-ARMv8-A 的特權模型：**Exception Level（EL）** 決定軟體能做什麼，**Security State** 決定能看到什麼。
+**Exception Level（特權層級）是什麼：** CPU 執行時有不同的「權限等級」，高等級可以做更多事（改硬體設定、存取所有記憶體），低等級受到限制。這是為了安全隔離——如果 user app 有 bug，它不能破壞整個系統。
+
+「Exception」這個名稱來自「跳到高特權層級」的機制叫做 exception（中斷、syscall 等），所以這個層級模型叫做 Exception Level。
+
+**為什麼要分四層：**
 
 ```
+問題：如果所有軟體都有最高權限，任何 bug 都是災難性的
+解法：按「信任程度」分層，下層不能影響上層
+
 EL3（最高特權）→ Secure Monitor（TF-A BL31）
-EL2            → Hypervisor（可選）
-EL1            → OS kernel（Linux / BL2 / U-Boot）
-EL0（最低特權）→ User space app
+EL2            → Hypervisor（可選，管理虛擬機）
+EL1            → OS kernel（Linux / U-Boot）
+EL0（最低特權）→ User space app（你的程式）
 
 每個 EL 都有 Secure 和 Non-Secure 兩種狀態（EL3 只有 Secure）
 ```
+
+**與 Windows/Linux 的對應：**
+
+```
+Linux 概念：         ARM EL 對應：
+kernel space    ↔   EL1（可存取所有硬體暫存器）
+user space      ↔   EL0（只能用 syscall 請 kernel 幫忙）
+hypervisor      ↔   EL2（管多個 OS，本專案不用）
+secure monitor  ↔   EL3（比 kernel 更高，管 TrustZone）
+```
+
+ARMv8-A 的特權模型：**EL** 決定軟體能做什麼，**Security State** 決定能看到什麼。
 
 ---
 
@@ -106,13 +125,21 @@ Non-Secure EL1（Linux）
 
 ## ERET：特權降低的方式
 
+**為什麼不能直接跳轉：** 如果 EL3 可以用 `B`（普通跳轉）到 EL1，那 EL1 的程式碼也能偽造這個跳轉，假裝自己從 EL3 跳過來，繞過安全檢查。`ERET` 是硬體規定的唯一降級路徑，只有高 EL 才能執行，低 EL 執行 ERET 會觸發 fault。
+
 高 EL 跳到低 EL 用 `ERET`（Exception Return）：
 
 ```asm
 // BL31 跳到 BL33（U-Boot）的大略邏輯
-MSR  ELR_EL3, X0     // 設定返回位址（U-Boot 的入口）
-MSR  SPSR_EL3, X1    // 設定目標的 PSTATE（EL1-NS）
-ERET                 // 跳過去
+MSR  ELR_EL3, X0     // 設定「返回後要去的位址」（U-Boot 的入口）
+MSR  SPSR_EL3, X1    // 設定「返回後的狀態」（EL1-NS，Non-Secure）
+ERET                 // 降到 EL1-NS，跳到 ELR_EL3 的位址
+```
+
+```
+ERET 的效果：
+  EL3 → 設定目標 EL 和位址 → ERET → 硬體切換到 EL1，跳到指定位址
+  低 EL 無法自己呼叫 ERET 升級，只能透過 SMC 請 EL3 幫忙
 ```
 
 不能直接 `B` 或 `BL` 到低 EL——ERET 是唯一合法的降級路徑。
@@ -121,15 +148,20 @@ ERET                 // 跳過去
 
 ## 異常（Exception）的種類
 
-進入高 EL（特權提升）的方式：
+進入高 EL（特權提升）的方式。注意：這裡的「異常」不是錯誤，而是「觸發 CPU 跳到高特權層級處理」的事件：
 
 ```
-SVC   → EL0 呼叫 EL1（syscall）
-HVC   → EL1 呼叫 EL2（hypercall）
-SMC   → 任何 EL 呼叫 EL3（secure monitor call）
-IRQ   → 中斷（Interrupt Request）
-FIQ   → 快速中斷（通常路由到 Secure World）
-SError → 非同步異常（如 bus error）
+SVC    → EL0 請求 EL1 服務（= Linux syscall，如 read()、write()）
+HVC    → EL1 請求 EL2 服務（= hypercall，VM 請 hypervisor 幫忙）
+SMC    → 任何 EL 請求 EL3 服務（= secure monitor call，NW 請 SW 幫忙）
+IRQ    → 硬體中斷（如 UART 資料到了、Timer 到期）
+FIQ    → 快速中斷（通常路由到 Secure World，NW 看不到）
+SError → 非同步錯誤（如 bus error，記憶體存取失敗）
+
+類比：
+SVC → C# 的方法呼叫（user → kernel）
+SMC → kernel 請求更底層的 secure firmware
+IRQ → C# 的 event 觸發（硬體事件 → CPU）
 ```
 
 ### FIQ vs IRQ 路由

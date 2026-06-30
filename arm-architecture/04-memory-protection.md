@@ -18,52 +18,94 @@ A35 用 MMU 給 Linux 做虛擬記憶體；M33 用 MPU 做基本存取保護。
 
 ## MMU（A35 側）
 
+**MMU 是什麼：** Memory Management Unit，把「虛擬位址」翻譯成「實體位址」的硬體單元。
+
+**為什麼需要虛擬位址：**
+
+```
+問題：多個 process 同時執行，彼此不能互相讀取記憶體
+      Process A 的程式碼都假設自己從 0x400000 開始
+      Process B 也假設自己從 0x400000 開始
+      → 兩個 process 不能同時存在同一個實體位址
+
+解法：給每個 process 一個「假的位址空間」（虛擬位址）
+      OS 背後維護一張表（頁表），記錄虛擬 → 實體的對應
+      Process A 的 VA 0x400000 → 實體 0x80001000
+      Process B 的 VA 0x400000 → 實體 0x90002000
+      互不干擾
+```
+
+```
+Process A 存取 VA 0x400000：
+  → MMU 查頁表 → 找到 PA 0x80001000 → 去 RAM 讀資料
+
+Process A 存取 VA 0x1000（沒有映射）：
+  → MMU 查頁表 → 找不到 → Page Fault → OS 介入處理（通常是 crash）
+```
+
 ### 虛擬位址映射
 
 Linux 在 A35 上執行時，每個 process 都有自己的虛擬位址空間：
 
 ```
 虛擬位址空間（64-bit user space）
-  0x0000_0000_0000_0000 – 0x0000_FFFF_FFFF_FFFF  → User space
-  0xFFFF_0000_0000_0000 – 0xFFFF_FFFF_FFFF_FFFF  → Kernel space
+  0x0000_0000_0000_0000 – 0x0000_FFFF_FFFF_FFFF  → User space（每個 process 各自的空間）
+  0xFFFF_0000_0000_0000 – 0xFFFF_FFFF_FFFF_FFFF  → Kernel space（所有 process 共用）
 
 實體記憶體（STM32MP215F-DK）
-  0x0000_0000 – 0x3FFF_FFFF  → DDR（1 GB）
-  0x0E00_0000 – 0x0EFF_FFFF  → Secure SRAM（M33 用）
-  0x0800_0000 – 0x0BFF_FFFF  → NOR Flash
+  0x8000_0000 – 0xBFFF_FFFF  → DDR（1 GB，Linux 用）
+  0x0E00_0000 – 0x0EFF_FFFF  → Secure SRAM（M33 用，A35 看不到）
+  0x6000_0000 – 0x61FF_FFFF  → NOR Flash（記憶體映射讀取）
 ```
 
 ### 頁表（Page Table）
 
 ```
-頁大小：4 KB（0x1000）
-最小映射單位：一個 page
+頁（page）= MMU 映射的最小單位，固定 4 KB（0x1000）
+頁表（page table）= 記錄「哪個虛擬頁對應到哪個實體頁」的表格
 
-VA 0x400000 → PA 0x40001000  （可讀可執行，non-cacheable）
-VA 0x1000   → 無映射         → Page Fault
+VA 0x400000 → PA 0x80001000  （可讀可執行）
+VA 0x401000 → PA 0x80002000  （可讀可執行，下一頁）
+VA 0x1000   → 無映射         → Page Fault（段錯誤，通常讓程式 crash）
 ```
 
 Boot 期間，TF-A 和 U-Boot 用 **恆等映射**（identity mapping）：  
-`VA == PA`，簡化程式碼。Linux 啟動後才建立完整頁表。
+`VA == PA`，省掉翻譯，簡化程式碼。Linux 啟動後才建立完整頁表。
 
 ### TLB（Translation Lookaside Buffer）
 
-頁表查詢很慢，TLB 是快取：
+每次記憶體存取都查頁表很慢，TLB 是頁表的快取：
+
+```
+第一次存取 VA 0x400000：
+  → MMU 查頁表（慢）→ 找到 PA → 把這個對應存進 TLB
+
+第二次存取 VA 0x400000：
+  → MMU 先查 TLB（快）→ 命中 → 直接用 PA，不用查頁表
+```
+
+切換 process 時，TLB 必須清空（舊 process 的對應對新 process 無效）：
 
 ```c
-// 切換 process 時，Linux 會 flush TLB
-// TF-A 切換世界前也要做
-asm("tlbi vmalle1");    // 讓 EL1 的所有 TLB 失效
-asm("dsb sy");          // Data Synchronization Barrier
-asm("isb");             // Instruction Synchronization Barrier
+asm("tlbi vmalle1");    // 讓 EL1 的所有 TLB 失效（切換 process 或 world 時）
+asm("dsb sy");          // 確保 TLB 清空完成
+asm("isb");             // 清除 pipeline，確保後續指令用新的 TLB
 ```
 
 ### Memory Attributes（MAIR_EL1）
 
+不同記憶體區域有不同特性，MMU 頁表裡每個頁都標記屬性：
+
 ```
-Device-nGnRnE  → 硬體暫存器（MMIO），不可 cache，不可 reorder
-Normal         → 一般記憶體（DDR），可以 cache
-Normal NC      → Non-Cacheable DDR（共享記憶體用）
+Device-nGnRnE  → 硬體暫存器（MMIO）
+                  不可 cache（寫進去要立刻生效，不能被快取）
+                  不可 reorder（寫的順序要和程式碼一樣）
+
+Normal         → 一般記憶體（DDR）
+                  可以 cache，CPU 可以重排存取順序（效能最好）
+
+Normal NC      → Non-Cacheable DDR
+                  M33 和 A35 共享記憶體用，避免 cache coherency 問題
 ```
 
 ---
@@ -162,26 +204,34 @@ Non-Secure SRAM（SAU region, Non-Secure）
 
 ## 記憶體屏障（Memory Barriers）
 
-ARM 架構是弱記憶體序（Weak Memory Ordering）：  
-CPU 可以重新排序讀寫操作（為了效能）。在嵌入式安全場景需要明確的 barrier：
+**為什麼 CPU 會亂序：** ARM 是「弱記憶體序（Weak Memory Ordering）」架構，CPU 和編譯器為了效能，可以把讀寫操作重新排序。大多數時候無所謂，但在安全關鍵設定（MPU、SAU）上，順序錯了會有漏洞：
+
+```
+你寫的程式碼：         CPU 實際執行的順序（可能）：
+SAU->CTRL = enable;   後面的程式碼先跑了
+後面的程式碼...        SAU->CTRL = enable;  ← 設定還沒生效就繼續執行！
+```
+
+加上 barrier 告訴 CPU「這裡不准重排」：
 
 ```c
-// DSB：Data Synchronization Barrier
-// 確保之前的所有記憶體操作完成後才繼續
-__DSB();   // Cortex-M: __DSB(); A64: asm("dsb sy")
-
-// ISB：Instruction Synchronization Barrier
-// 清除 pipeline，確保之後的指令從新的狀態取指
-__ISB();
-
-// DMB：Data Memory Barrier
-// 確保記憶體存取的相對順序（比 DSB 弱）
-__DMB();
-
-// 典型用法：設定 MPU/SAU 後必須加
 SAU->CTRL = SAU_CTRL_ENABLE_Msk;
-__DSB();   // 確保 SAU 設定生效
-__ISB();   // 確保之後的指令都在新的 SAU 設定下執行
+__DSB();   // Data Synchronization Barrier：等到這行前的所有記憶體操作完成
+__ISB();   // Instruction Synchronization Barrier：清除 pipeline，確保後續指令在新狀態下執行
+
+// 這之後的程式碼才開始跑，SAU 設定已確實生效
+```
+
+三種 barrier 的強弱：
+
+```
+DSB（最強）：等所有記憶體操作完成，再繼續任何指令
+DMB（中間）：只確保記憶體存取的相對順序，不等其他指令
+ISB（pipeline）：清除 CPU pipeline，讓後續指令重新取指（用於改完設定後）
+
+典型組合：
+  設定完 MPU/SAU/SCR → __DSB() + __ISB()
+  多核共享資料同步   → __DMB()
 ```
 
 ---

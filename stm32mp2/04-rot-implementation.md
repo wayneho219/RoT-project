@@ -7,11 +7,12 @@ week: "9+"
 
 ## 整體架構回顧
 
-```
 專案目標：
-  M33-TD 上電後驗證 NOR Flash 中的 A35 firmware（SHA-256 + ECDSA）
-  通過 → release A35 reset
-  失敗 → A35 永遠不啟動（防止執行被篡改的 firmware）
+```
+Goal:
+  M33-TD verifies A35 firmware in NOR Flash (SHA-256 + ECDSA) on power-on
+  Pass -> release A35 reset
+  Fail -> A35 never starts (prevents tampered firmware from running)
 ```
 
 ---
@@ -257,28 +258,29 @@ add_custom_command(TARGET rot_m33.elf POST_BUILD
 ## 測試策略
 
 ```
-Unit tests（在開發機上模擬）：
-  ├── test_sha256：用已知向量驗證 SHA-256 實作
-  ├── test_ecdsa_verify：用已知 key/sig/msg 驗證 ECDSA
-  ├── test_memcmp_ct：確認 constant-time 比較的時序
-  └── test_rollback：驗證 rollback counter 邏輯
+Unit tests (host simulation):
+  ├── test_sha256       : verify SHA-256 with known test vectors
+  ├── test_ecdsa_verify : verify ECDSA with known key/sig/msg
+  ├── test_memcmp_ct    : confirm constant-time comparison timing
+  └── test_rollback     : verify rollback counter logic
 
-Integration tests（在板子上）：
-  ├── 正常流程：正確的 firmware → A35 成功啟動
-  ├── hash 損毀：改一個 byte → A35 不啟動
-  ├── 簽章錯誤：用錯誤 private key 簽 → A35 不啟動
-  └── rollback：放舊版 firmware → A35 不啟動（OTP counter 阻擋）
+Integration tests (on board):
+  ├── Happy path  : valid firmware -> A35 boots successfully
+  ├── Hash tamper : flip one byte -> A35 does not boot
+  ├── Wrong key   : signed with wrong private key -> A35 does not boot
+  └── Rollback    : old version firmware -> A35 blocked by OTP counter
 ```
 
 ---
 
 ## 下一步（履歷目標進度）
 
+進度：
 ```
-✅ M33-TD hold/release A35 reset（核心 RoT）
-✅ Secure Boot 鏈（hash + ECDSA 簽章驗證）
-✅ 金鑰儲存在 M33 側，A35 不可直接存取
-✅ Rollback protection
-⬜ 基礎 Secure Storage（加密 key blob）← 下一個
-⬜ Remote Attestation（選配）
+[x] M33-TD hold/release A35 reset (core RoT)
+[x] Secure Boot chain (hash + ECDSA signature verification)
+[x] Key stored on M33 side, inaccessible to A35
+[x] Rollback protection
+[ ] Basic Secure Storage (encrypted key blob)  <- next
+[ ] Remote Attestation (optional)
 ```

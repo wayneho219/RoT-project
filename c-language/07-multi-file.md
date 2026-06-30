@@ -1,8 +1,14 @@
 ---
-tags: [c-language, module]
-topic: c-language
-week: "1-2"
+date: 2026-06-15
+type: tech-note
+tags: [c-language, embedded, module]
+output: study
+status: complete
 ---
+
+> [!abstract] TL;DR
+> 嵌入式專案用 `.h`/`.c` 拆分模組，`#ifndef` guard、opaque pointer、前綴命名是標準組織方式。Makefile 管理多檔編譯，linker script 決定最終記憶體佈局。
+
 # C 語言 Module 7：多檔案組織
 
 ## 為什麼要拆檔案
@@ -11,6 +17,22 @@ week: "1-2"
 每個檔案負責一個模組（flash driver、crypto、uart 等），  
 透過 .h 檔對外公開介面，隱藏實作細節。
 
+**編譯流程示意：**
+
+```mermaid
+flowchart LR
+    A[main.c] -->|編譯| D[main.o]
+    B[flash.c] -->|編譯| E[flash.o]
+    C[uart.c] -->|編譯| F[uart.o]
+    D -->|連結| G[firmware.elf]
+    E -->|連結| G
+    F -->|連結| G
+    G -->|objcopy| H[firmware.bin]
+
+    I[flash.h] -..->|#include| A
+    I -..->|#include| B
+```
+
 ---
 
 ## .h 和 .c 的職責
@@ -18,6 +40,25 @@ week: "1-2"
 ```
 uart.h  → 對外說「我能做什麼」（宣告）
 uart.c  → 說明「我怎麼做」（定義/實作）
+```
+
+**h / c 分工示意：**
+
+```
+flash.h（公開介面）:           flash.c（私有實作）:
+┌───────────────────────┐     ┌───────────────────────┐
+│ typedef FlashResult   │     │ #define FLASH_BASE    │  ← 外部看不到
+│ flash_init()  (decl)  │←───→│ static current_addr   │  ← 外部看不到
+│ flash_read()  (decl)  │ API │ flash_init() { ... }  │
+│ flash_write() (decl)  │     │ flash_read() { ... }  │
+└───────────────────────┘     └───────────────────────┘
+         ↑
+         │ #include "flash.h"
+┌───────────────────────┐
+│ main.c                │  只需要知道「能做什麼」
+│ flash_init();         │  不需要知道「怎麼做到的」
+│ flash_read(...);      │
+└───────────────────────┘
 ```
 
 其他模組只需要 `#include "uart.h"`，不用知道 uart.c 的細節。
@@ -130,6 +171,18 @@ uint32_t clk = config_get_clock();
 
 ## Opaque Pointer（不透明指標）
 
+**為什麼需要隱藏 struct 內部：** 如果 `.h` 裡暴露了 struct 的完整欄位，外部程式碼可以直接存取（甚至意外修改）你的內部狀態。Opaque Pointer 讓外部只知道「這個型別存在」，但不知道裡面有什麼，強制用你提供的函式存取。
+
+```
+沒有 Opaque Pointer：
+  // sha256.h 裡定義完整的 struct
+  外部可以直接寫 ctx.state[0] = 0; → 破壞你的內部狀態！
+
+有 Opaque Pointer：
+  // sha256.h 裡只宣告型別，不定義內容
+  外部只能呼叫 sha256_update()，根本存取不到 state
+```
+
 隱藏 struct 的內部結構，只讓外部知道「有這個型別存在」：
 
 ```c
@@ -167,23 +220,46 @@ struct Sha256Ctx {
 
 ## Makefile 基礎
 
+**Makefile 是什麼：** 定義「哪個檔案依賴哪些檔案、要怎麼產生」的腳本。`make` 指令讀取它，只重新編譯有改動的部分。
+
+**Makefile 的語法：**
+
+```
+目標: 依賴1 依賴2
+	命令（必須用 Tab 縮排，不能用空格）
+```
+
 多個 .c 檔需要 Makefile 管理編譯：
 
 ```makefile
-CC     = arm-none-eabi-gcc   # 交叉編譯器
+CC     = arm-none-eabi-gcc   # 交叉編譯器（cross-compiler，在 x86 電腦上編譯 ARM 程式）
 CFLAGS = -Wall -O2 -mcpu=cortex-m33
 
 # 目標：最終的 binary
 firmware.elf: main.o flash.o uart.o crypto.o
 	$(CC) $(CFLAGS) -T linker.ld -o $@ $^
+#                                   ↑   ↑
+#                    $@ = 目標名稱（firmware.elf）
+#                         $^ = 所有依賴（main.o flash.o uart.o crypto.o）
 
-# 每個 .c 編譯成 .o
+# 每個 .c 編譯成 .o（%是萬用字元，匹配任何名稱）
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
+#                         ↑   ↑
+#              $@ = 目標（例如 main.o）
+#                   $< = 第一個依賴（例如 main.c）
 
 clean:
 	rm -f *.o *.elf
 ```
+
+**自動變數總結：**
+
+| 變數 | 意思 | 範例 |
+|------|------|------|
+| `$@` | 目標（冒號左邊） | `firmware.elf` |
+| `$^` | 所有依賴（冒號右邊全部）| `main.o flash.o uart.o` |
+| `$<` | 第一個依賴 | `main.c` |
 
 ---
 
@@ -243,4 +319,41 @@ rot-firmware/
 
 ## 下一步
 
-→ [Module 8：常見陷阱與 Undefined Behavior](08-pitfalls.md)
+> [!tip] 複習問題
+> 1. Include guard（`#ifndef`）的作用是什麼？沒有它會發生什麼？
+> 2. Opaque pointer 解決了什麼問題？在 `.h` 和 `.c` 分別如何寫？
+> 3. 為什麼嵌入式 C 函式名稱要加模組前綴（如 `flash_read`）？不加前綴有什麼風險？
+
+> [!example] 參考答案
+>
+> **1. Include guard**
+>
+> 防止同一個 `.h` 被重複 include 時產生重複定義錯誤。`.h` 可能被多個 `.c` include，也可能被同一個 `.c` 間接 include 兩次。沒有 guard，`typedef`/`struct` 宣告出現兩次，編譯失敗。
+>
+> ```c
+> #ifndef FLASH_H   // 第一次進來：還沒定義，繼續
+> #define FLASH_H   // 定義這個 symbol
+> // ... 內容 ...
+> #endif            // 第二次進來：已定義，整個跳過
+> ```
+>
+> **2. Opaque pointer**
+>
+> 讓外部無法直接得知 struct 的實際內容，只知道型別存在，無法從外部直接修改內部欄位。等同 C# 的 `private` 欄位 + `public` 方法。
+>
+> ```c
+> // flash.h（只宣告型別存在，不定義內容）
+> typedef struct FlashCtx FlashCtx;
+>
+> // flash.c（真正的定義在這裡）
+> struct FlashCtx {
+>     uint32_t addr;
+>     uint8_t  buf[256];
+> };
+> ```
+>
+> **3. 模組前綴**
+>
+> C 沒有 namespace，前綴是唯一的模組隔離手段。不加前綴的風險：跨模組撞名導致 linker error，或誤連結到同名但行為不同的函式，且不會有任何警告。
+
+→ [[08-pitfalls|Module 8：常見陷阱與 Undefined Behavior]]

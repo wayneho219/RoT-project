@@ -24,28 +24,33 @@ pthread_create(&tid, NULL, thread_func, NULL);
 
 ## 記憶體佈局（User Space）
 
+每個 process 的虛擬位址空間從低位址到高位址分成幾個固定區段：
+
+高位址 → 低位址（由上而下）；Stack 向下成長，Heap 向上成長。
+
 ```
-高位址
+高位址 (0xFFFF_0000_0000_0000+)
   ┌──────────────────────┐
-  │ Kernel Space（不可見）│  0xFFFF_0000_0000_0000 以上
+  │ Kernel Space         │  ← 不可見；user 存取 → segfault
   ├──────────────────────┤
-  │ Stack（向下成長）     │  ← SP（每個 thread 獨立）
+  │ Stack (grows down)   │  區域變數、返回位址
   │   ▼                  │
   │   ▼                  │
   ├──────────────────────┤
-  │ Memory-mapped files   │  mmap(), shared libs
+  │ Memory-mapped files  │  mmap()、動態函式庫（.so）
   ├──────────────────────┤
   │   ▲                  │
   │   ▲                  │
-  │ Heap（向上成長）      │  ← malloc() / free()
+  │ Heap (grows up)      │  malloc() / free()
   ├──────────────────────┤
-  │ BSS（未初始化全域）   │  int global_arr[1000]; → 這裡
+  │ BSS                  │  未初始化全域/靜態變數，OS 清零
+  │                      │  e.g. int global_arr[1000];
   ├──────────────────────┤
-  │ Data（已初始化全域）  │  int x = 42; → 這裡
+  │ Data                 │  已初始化全域變數，e.g. int x = 42;
   ├──────────────────────┤
-  │ Text（程式碼，唯讀）  │  ← PC 在這裡跑
+  │ Text (read-only)     │  程式碼（機器碼），PC 在這裡執行
   └──────────────────────┘
-低位址（0x0000_0000...）
+低位址 (0x0000_0000...)
 ```
 
 ---

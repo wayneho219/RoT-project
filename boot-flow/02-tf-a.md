@@ -15,12 +15,24 @@ week: "5-6"
 
 ## TF-A 的分層設計
 
+**BL 命名是什麼：** BL = Boot Loader，數字代表載入順序。每個 BL 負責初始化一部分硬體，然後把控制權交給下一個。
+
 ```
 BL1  → BootROM 的角色（通常在晶片 ROM，TF-A 可替換）
+         最早執行，驗證並載入 BL2
 BL2  → Second Stage Bootloader（Trusted Boot Loader）
+         在 Secure EL1 執行，初始化 DDR，載入 BL31/BL32/BL33
 BL31 → Runtime Secure Monitor（EL3 常駐）
+         一直跑在背景，Linux 透過 SMC 呼叫它；永遠不被卸載
 BL32 → Trusted OS（如 OP-TEE），可選
+         Secure EL1 的作業系統，提供 Trusted Application 環境
 BL33 → Non-Trusted Firmware（U-Boot / UEFI）
+         第一個 Non-Secure 的程式，負責載入 Linux
+```
+
+```
+開機流程：BL1 → BL2 → BL31 常駐 + BL32 常駐 + BL33 跳轉到 Linux
+               (S EL1) (EL3)         (S EL1)      (NS EL1)
 ```
 
 ---
@@ -91,10 +103,18 @@ BL31 SMC handler（EL3）
 
 ### PSCI（Platform Security Coordination Interface）
 
+**PSCI 是什麼：** ARM 規定的電源管理 API 標準。Linux 不直接操作電源暫存器（各 SoC 實作不同），而是透過 SMC 呼叫 BL31 的 PSCI handler，由 BL31 操作底層暫存器。好處是 Linux 的電源管理程式碼可以跨平台。
+
 ```c
-// Linux 呼叫 PSCI shutdown
+// Linux 呼叫 PSCI shutdown：
 // 底層是 SMC #0, X0 = PSCI_SYSTEM_OFF = 0x8400_0008
-system_off() → SMC → BL31 → 關閉所有 CPU → 斷電
+system_off() → SMC → BL31 PSCI handler → 關閉所有 CPU → 斷電
+
+// 常用 PSCI 函式：
+// CPU_ON       = 0xC400_0003  → 喚醒另一個 CPU 核心
+// CPU_OFF      = 0x8400_0002  → 關閉目前 CPU 核心
+// SYSTEM_RESET = 0x8400_0009  → 重開機
+// SYSTEM_OFF   = 0x8400_0008  → 關機
 ```
 
 ### SCR_EL3 配置（安全關鍵）

@@ -7,45 +7,48 @@ week: "5-6"
 
 ## 概覽
 
+上電後進入開機鏈；A35 reset 由 M33 Secure Firmware 驗證通過後 release。
+
 ```
-                    ┌─────────────────────────────────────────────────┐
-                    │  STM32MP215F-DK 開機鏈                          │
-                    │                                                  │
-  上電 ──────────▶  M33 ROM Code                                      │
-                    │  └── 從 OTP/BSEC 決定 boot source              │
-                    │  └── 載入 M33 Secure Firmware（NOR Flash）      │
-                    ▼                                                  │
-                    M33 Secure Firmware                               │
-                    │  └── 驗證 A35 firmware（SHA-256 + ECDSA）       │
-                    │  └── 通過 → release A35 reset                  │
-                    │  └── 失敗 → 鎖死                               │
-                    ▼                                                  │
-  A35 reset ──▶    A35 ROM Code（BootROM）                           │
-  released          │  └── 決定 boot device（NOR Flash / eMMC / USB）│
-                    │  └── 載入並驗證 TF-A BL2                        │
-                    ▼                                                  │
-                    TF-A BL2（EL1-S，Secure）                         │
-                    │  └── 初始化 DDR                                  │
-                    │  └── 載入 BL31（Secure Monitor）                 │
-                    │  └── 載入 BL33（U-Boot）                         │
-                    │  └── 可選：載入 BL32（OP-TEE）                   │
-                    ▼                                                  │
-                    TF-A BL31（EL3，常駐）                             │
-                    │  └── 初始化 Secure Monitor                       │
-                    │  └── 配置 TZASC（TrustZone Address Space Ctrl） │
-                    │  └── ERET 跳到 BL33                             │
-                    ▼                                                  │
-                    U-Boot（EL1-NS，BL33）                             │
-                    │  └── 初始化周邊（網路、USB 等）                   │
-                    │  └── 載入 Linux kernel + DTB + initramfs        │
-                    │  └── booti 指令跳到 Linux                        │
-                    ▼                                                  │
-                    Linux kernel（EL1-NS）                             │
-                    │  └── 掛載 rootfs                                 │
-                    │  └── 啟動 init / systemd                         │
-                    ▼                                                  │
-                    User space                                         │
-                    └─────────────────────────────────────────────────┘
+STM32MP215F-DK Boot Chain
+
+Power-on
+  │
+  ▼
+M33 ROM Code
+  │  └── boot source via OTP/BSEC
+  │  └── load M33 Secure Firmware (NOR Flash)
+  ▼
+M33 Secure Firmware
+  │  └── verify A35 fw (SHA-256 + ECDSA)
+  │  └── pass → release A35 reset
+  │  └── fail → lockdown
+  ▼
+A35 ROM Code (BootROM)                ← A35 reset released here
+  │  └── boot device (NOR Flash / eMMC / USB)
+  │  └── load & verify TF-A BL2
+  ▼
+TF-A BL2 (EL1-S, Secure)
+  │  └── init DDR
+  │  └── load BL31 (Secure Monitor)
+  │  └── load BL33 (U-Boot)
+  │  └── optional: load BL32 (OP-TEE)
+  ▼
+TF-A BL31 (EL3, resident)
+  │  └── init Secure Monitor
+  │  └── config TZASC (TrustZone Address Space Ctrl)
+  │  └── ERET to BL33
+  ▼
+U-Boot (EL1-NS, BL33)
+  │  └── init peripherals (net, USB ...)
+  │  └── load Linux kernel + DTB + initramfs
+  │  └── booti → jump to Linux
+  ▼
+Linux kernel (EL1-NS)
+  │  └── mount rootfs
+  │  └── start init / systemd
+  ▼
+User space
 ```
 
 ---

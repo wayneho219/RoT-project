@@ -7,21 +7,26 @@ week: "5-6"
 
 ## 硬體元件
 
-A35 TrustZone 由三個硬體元件協作：
+A35 TrustZone 由三個硬體元件協作，各自負責不同的隔離：
 
 ```
-CPU（Cortex-A35）
-  └── SCR_EL3：設定哪些記憶體/中斷給哪個 world
+CPU (Cortex-A35)
+  └── SCR_EL3: control register at EL3 — sets current World & IRQ routing
 
-TZASC（TrustZone Address Space Controller）
-  └── 在 DDR controller 前，決定 DDR 哪些區域是 Secure
+TZASC (TrustZone Address Space Controller)   <-- gatekeeper between CPU & DDR
+  └── every DDR access passes through TZASC
+      NS requests to Secure DDR regions are blocked
 
-TZMA（TrustZone Memory Adapter）
-  └── 保護 SRAM / Peripheral，決定每個 peripheral 屬於哪個 world
+TZMA (TrustZone Memory Adapter) / ETZPC      <-- protects SRAM & peripherals
+  └── each peripheral can be set Secure-only or accessible by both Worlds
+      (UART, SPI, RNG ...)
 
-GIC（Generic Interrupt Controller）
-  └── 決定每個中斷路由到 Secure 還是 Non-Secure World
+GIC (Generic Interrupt Controller)           <-- interrupts have security attrs
+  └── each IRQ can be routed to Secure World (FIQ) or Normal World (IRQ)
+      secure timer / secure UART interrupts are invisible to Normal World
 ```
+
+**為什麼中斷也要分安全屬性：** 如果 UART 中斷可以被 Normal World 攔截，攻擊者可以透過中斷機制干擾 Secure World 的執行流。GIC 讓 Secure 的硬體事件（如 tamper 偵測）直接路由到 EL3，Normal World 看不到。
 
 ---
 
@@ -50,18 +55,19 @@ SCR_EL3 &= ~SCR_IRQ_BIT;  // IRQ 給 Normal World
 
 保護 DDR 中的 Secure 記憶體區域：
 
+DDR 1 GB：0x8000_0000 – 0xBFFF_FFFF，經 TZASC 分為兩個 Region：
 ```
-DDR 記憶體 0x8000_0000 – 0xBFFF_FFFF（1 GB）
-                │
-              TZASC
-                │
-  ┌─────────────┴──────────────┐
-  │ Region 1: OP-TEE（Secure） │
-  │ 0xFE00_0000 – 0xFFFF_FFFF │  ← 只有 Secure World 可存取
-  │                            │
-  │ Region 0: Linux（NS）      │
-  │ 0x8000_0000 – 0xFDFF_FFFF │  ← Normal World 可存取
-  └────────────────────────────┘
+            DDR 0x8000_0000 - 0xBFFF_FFFF (1 GB)
+                         |
+                       TZASC
+                         |
+  ┌──────────────────────┴─────────────────────┐
+  │ Region 1: OP-TEE (Secure)                  │ <-- Secure World only
+  │ 0xFE00_0000 - 0xFFFF_FFFF                  │
+  ├────────────────────────────────────────────┤
+  │ Region 0: Linux (NS)                       │ <-- Normal World accessible
+  │ 0x8000_0000 - 0xFDFF_FFFF                  │
+  └────────────────────────────────────────────┘
 ```
 
 TF-A BL31 在初始化時配置 TZASC：

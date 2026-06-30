@@ -1,8 +1,14 @@
 ---
-tags: [c-language, module]
-topic: c-language
-week: "1-2"
+date: 2026-06-15
+type: tech-note
+tags: [c-language, embedded, module]
+output: study
+status: complete
 ---
+
+> [!abstract] TL;DR
+> 指標是「存記憶體位址的變數」，是 C 嵌入式開發的核心工具——用於函式修改外部變數、memory-mapped I/O 暫存器操作、以及陣列傳遞。陣列傳進函式後會 decay 成指標，必須搭配 `len` 參數。
+
 # C 語言 Module 2：指標與記憶體
 
 ## 核心概念
@@ -17,6 +23,21 @@ week: "1-2"
 
 int value = 42;   → 存在位址 0x1000
 int *ptr = &value → ptr 的值是 0x1000
+```
+
+**指標概念示意：**
+
+```
+int value = 42;
+int *ptr  = &value;
+
+       0x1000          0x2000
+      ┌──────────┐    ┌──────────┐
+      │    42    │    │  0x1000  │
+      └──────────┘    └──────────┘
+        value            ptr
+                           │
+              *ptr ────────┘  dereference：追蹤位址，取得值（42）
 ```
 
 ---
@@ -61,6 +82,20 @@ int main(void) {
     double_value(&x);   // 傳 x 的位址
     printf("%d\n", x);  // 10
 }
+```
+
+**Pass by Value vs Pass by Reference 示意：**
+
+```
+Pass by Value（沒有指標）：
+  main:   x = 5  ──呼叫──→  double_wrong(n=5)  n 是副本
+                             n = 10             只改了副本
+  main:   x = 5  ←──返回──  函式結束            x 沒有改變 ✗
+
+Pass by Reference（有指標）：
+  main:   x = 5  ──呼叫──→  double_value(n=&x)  n 存 x 的位址
+                             *n = 10             透過位址改到 x
+  main:   x = 10 ←──返回──  函式結束             x 已改變 ✓
 ```
 
 C# 對應：`ref` 參數。
@@ -113,6 +148,31 @@ uint32_t *p = regs;
 // p + 1 往後移 4 bytes（sizeof(uint32_t) = 4）
 ```
 
+**指標算術示意：**
+
+```
+uint8_t data[] = {0xAA, 0xBB, 0xCC, 0xDD};
+uint8_t *p = data;
+
+位址:  0x100    0x101    0x102    0x103
+      ┌───────┬───────┬───────┬───────┐
+      │ 0xAA  │ 0xBB  │ 0xCC  │ 0xDD  │
+      └───────┴───────┴───────┴───────┘
+         ↑        ↑        ↑
+         p      p+1      p+2
+       *p=AA  *(p+1)=BB *(p+2)=CC
+
+uint32_t regs[4];
+uint32_t *q = regs;  // 每個元素 4 bytes
+
+位址:  0x200       0x204       0x208       0x20C
+      ┌──────────┬──────────┬──────────┬──────────┐
+      │  regs[0] │  regs[1] │  regs[2] │  regs[3] │
+      └──────────┴──────────┴──────────┴──────────┘
+           ↑           ↑
+           q          q+1  （移動 4 bytes，不是 1 byte）
+```
+
 ---
 
 ## 陣列傳入函式：Decay to Pointer
@@ -132,9 +192,28 @@ int find_byte(const uint8_t *data, uint32_t len, uint8_t target) {
 }
 ```
 
-**結論**：
-- 傳陣列進函式時，**一定要同時傳長度**（`len` 參數）
-- 函式裡絕對不能用 `sizeof(陣列指標)` 取長度
+**陣列 Decay 示意：**
+
+```
+uint8_t data[5] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE};
+
+位址:  0x100  0x101  0x102  0x103  0x104
+      ┌──────┬──────┬──────┬──────┬──────┐
+      │ 0xAA │ 0xBB │ 0xCC │ 0xDD │ 0xEE │
+      └──────┴──────┴──────┴──────┴──────┘
+         ↑
+      data = &data[0] = 0x100
+
+find_byte(data, 5, 0xCC);
+           ↓
+函式收到：const uint8_t *data = 0x100
+  sizeof(data) = 8（指標大小！）← 不是 5
+  必須靠 len 參數才知道長度
+```
+
+> [!important] 陣列 Decay 結論
+> - 傳陣列進函式時，**一定要同時傳長度**（`len` 參數）
+> - 函式裡絕對不能用 `sizeof(陣列指標)` 取長度
 
 ### `const uint8_t *data, uint32_t len` 慣用模式
 
@@ -253,4 +332,9 @@ uint8_t *p = (uint8_t *)&reg;  // 合法但要小心 endianness
 
 ## 下一步
 
-→ [Module 3：Bit Manipulation](03-bit-manipulation.md)
+> [!tip] 複習問題
+> 1. `uint8_t data[5]` 傳入函式後，為什麼不能用 `sizeof(data)` 取長度？正確做法是什麼？
+> 2. `const uint8_t *p` 和 `uint8_t * const p` 的差別是什麼？哪個在函式參數最常見？
+> 3. 硬體暫存器指標為什麼要加 `volatile`？不加時編譯器會做什麼最佳化？
+
+→ [[03-bit-manipulation|Module 3：Bit Manipulation]]

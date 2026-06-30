@@ -7,6 +7,21 @@ week: "9"
 
 ## PKI（Public Key Infrastructure）
 
+**憑證（Certificate）是什麼：** 把一個 public key 和「這個 key 屬於誰」綁在一起，並由可信任的第三方（CA）簽署，證明這個 key 確實屬於這個人/組織。
+
+```
+沒有憑證的問題：
+  A 說「這是我的 public key，請用它驗簽」
+  B 無法確認這個 key 是不是 A 的（可能是攻擊者偽造的）
+
+有憑證：
+  CA（Certificate Authority，憑證授權機構）事先驗證 A 的身分
+  CA 用自己的 private key 簽發一張憑證：「這個 public key 確實屬於 A」
+  B 信任 CA → 所以 B 信任這張憑證 → 所以 B 信任這個 public key 屬於 A
+```
+
+**PKI = 管理這些憑證的整個基礎設施**（CA、憑證格式、撤銷機制等）。
+
 PKI 解決的問題：**怎麼知道一個 public key 是合法的？**
 
 ```
@@ -23,25 +38,24 @@ PKI 解決的問題：**怎麼知道一個 public key 是合法的？**
 
 ## 信任鏈（Chain of Trust）
 
+一般 PKI 層次：
 ```
 Root CA Key Pair
-  └── Self-signed Root Certificate（CA Cert）
-        └── 簽發 Intermediate Certificate
-              └── 簽發 Leaf Certificate（裝置憑證）
-                    └── 用來簽署 firmware
+  └── Self-signed Root Certificate (CA Cert)
+        └── signs Intermediate Certificate
+              └── signs Leaf Certificate (device cert)
+                    └── signs firmware
+```
 
 TF-A 的 CoT（Chain of Trust）：
-
-ROTPK（Root of Trust Public Key）
-  ├── 燒在 OTP 中（不可修改）
-  └── 對應一個 Root Key Pair
-        └── 簽發 Trusted Key Certificate（TKCert）
-              ├── 包含 BL2 Public Key
-              └── 包含 Non-Trusted World Public Key
-                    ├── BL2 Public Key
-                    │     └── 驗證 BL2 image hash
-                    └── Non-Trusted World Public Key
-                          └── 驗證 U-Boot image hash
+```
+ROTPK (Root of Trust Public Key)        <- stored in OTP (immutable)
+  └── Root Key Pair
+        └── signs Trusted Key Certificate (TKCert)
+              ├── contains BL2 Public Key
+              │     └── verifies BL2 image hash
+              └── contains Non-Trusted World Public Key
+                    └── verifies U-Boot image hash
 ```
 
 ---
@@ -111,12 +125,11 @@ if (memcmp_ct(computed_hash, bl2_hash, 32) != 0) panic();
 
 本專案不使用 TF-A 的 CoT，而是由 M33 直接做簡化版本：
 
+（TF-A CoT 的簡化版，只有兩層）
 ```
-ROTPK Hash（OTP）
-  └── 驗證 firmware header 裡的 Public Key
-        └── 驗證 firmware body 的 ECDSA 簽章
-
-這是 TF-A CoT 的簡化版（只有兩層）
+ROTPK Hash (OTP)
+  └── verifies Public Key in firmware header
+        └── verifies ECDSA signature over firmware body
 ```
 
 ---

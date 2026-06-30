@@ -5,30 +5,50 @@ week: "7-8"
 ---
 # Yocto Module 1：核心概念
 
+## Yocto 是什麼
+
+**Yocto Project** 是一個建立嵌入式 Linux 發行版的工具框架。你告訴它「我要什麼套件、目標板是什麼、用什麼 kernel」，它幫你從原始碼全部交叉編譯好，輸出一個可以燒進板子的 Linux image。
+
+```
+你的工作：寫 recipe（.bb 檔）描述要什麼
+Yocto：從 source code 交叉編譯所有東西，打包成 rootfs image
+
+類比：
+  Yocto ≈ 嵌入式版的 npm/pip
+  Recipe（.bb 檔）≈ package.json
+  Layer（meta-xxx）≈ npm package（可以複用、分享）
+```
+
+**為什麼要用 Yocto 而不是自己裝 Ubuntu：** 嵌入式設備的 Flash 空間有限（可能只有幾 MB），你需要一個只包含你需要的東西的最小 Linux。Ubuntu 有幾 GB，完全不適合。Yocto 讓你精確控制 image 裡有什麼。
+
+---
+
 ## Yocto 的三層結構
 
 ```
-OpenEmbedded Core（OE-Core）
-  └── 基礎 recipe、工具、類別（class）
+OpenEmbedded Core (OE-Core)
+  └── base recipes, tools, classes
 
 BitBake
-  └── 任務執行引擎，讀取 recipe 決定要做什麼
+  └── task execution engine; resolves recipe deps
 
-Layers（層）
-  └── meta-xxx/：分組的 recipe 集合
-       ├── meta/           OE-Core layer（基本工具）
-       ├── meta-poky/      Poky 參考發行版
-       ├── meta-st-stm32mp/ ST 官方 STM32MP layer
-       └── meta-rot/       你自己的 layer（RoT 相關）
+Layers
+  └── meta-xxx/: grouped recipe collections
+       ├── meta/            OE-Core layer (base tools)
+       ├── meta-poky/       Poky reference distro
+       ├── meta-st-stm32mp/ ST official STM32MP layer
+       └── meta-rot/        your own layer (RoT)
 ```
 
 ---
 
 ## BitBake 的基本概念
 
+**BitBake 是什麼：** Yocto 的建構引擎，負責讀取所有 recipe 並決定執行順序、管理依賴關係。類似 `make`，但專為嵌入式 Linux 設計。
+
 ### Recipe（.bb 檔）
 
-描述**如何建立一個 package**：
+描述**如何建立一個 package**（從哪裡下載原始碼、怎麼編譯、裝到哪裡）：
 
 ```bitbake
 # 例：hello-world_1.0.bb

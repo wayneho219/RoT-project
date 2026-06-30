@@ -5,12 +5,31 @@ week: "9"
 ---
 # 密碼學 Module 1：Hash 函式與完整性驗證
 
+## Hash 函式是什麼
+
+Hash 函式把任意長度的資料壓縮成固定長度的「指紋」（digest）：
+
+```
+SHA-256("hello world")       → 32 bytes 的固定輸出
+SHA-256(整個 Linux kernel)   → 也是同樣的 32 bytes
+
+輸入：任意大小（1 byte 到 1 GB 都可以）
+輸出：永遠固定大小（SHA-256 是 32 bytes）
+```
+
+類比：身分證號碼就像一個 hash，不同的人有不同的號碼，但你無法從號碼推回原始的人。
+
 ## Hash 函式的三個性質
 
 ```
 1. 確定性：相同輸入 → 永遠相同輸出
+            SHA-256("hello") 無論算幾次都相同
+
 2. 單向性：給定 hash，無法還原原始資料（計算上不可行）
-3. 碰撞抵抗：找不到兩個不同輸入有相同 hash
+            知道 hash = 2cf24... 無法推算出輸入是 "hello"
+
+3. 碰撞抵抗：找不到兩個不同輸入有相同 hash（計算上不可行）
+             找不到任何 X ≠ "hello" 使得 SHA-256(X) == SHA-256("hello")
 ```
 
 **用途**：不用傳輸整份資料，只比較 hash，就能確認資料是否一致。
@@ -54,17 +73,19 @@ void verify_firmware_integrity(void) {
 
 ## SHA-256 計算流程（概念）
 
+輸入：任意長度資料 M
 ```
-輸入資料 M（任意長度）
+Input M
   │
-  ▼ 分塊（每塊 512 bits = 64 bytes）
+  ▼  split into 512-bit (64-byte) blocks
 Block 0 | Block 1 | Block 2 | ... | Padding
   │        │        │
   ▼        ▼        ▼
-[Compression function（64 rounds）]
-  └── 8 個 32-bit 工作變數（A–H）→ 每輪都更新
-  └── 最後輸出 256 bits
+[Compression function (64 rounds)]
+  └── 8 x 32-bit working vars (A-H), updated each round
+  └── final output: 256 bits
 ```
+輸出：256-bit digest
 
 ### Padding 規則
 

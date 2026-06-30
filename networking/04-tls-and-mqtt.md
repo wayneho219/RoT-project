@@ -17,34 +17,38 @@ TLS 是 HTTPS 背後的加密協定，也是嵌入式裝置安全通訊的基礎
 3. 身份驗證（Authentication）：確認對方是誰（防冒充）
 ```
 
+**cipher suite（加密套件）是什麼：** TLS 連線要用哪些加密演算法的組合。例如 `TLS_AES_256_GCM_SHA384` 代表用 AES-256-GCM 加密、SHA-384 做 MAC。TLS 握手時 client 列出自己支援的 suite，server 從中選一個。
+
 ### TLS 1.3 握手流程
 
 ```
-Client（IoT 裝置）              Server（OTA Server）
+Client (IoT device)             Server (OTA Server)
      │                                │
      │  ClientHello                   │
-     │  ─── 支援的 cipher suite ──▶   │
-     │  ─── key share（ECDH 公鑰）──▶  │
+     │  ─── supported cipher suites ──▶   │
+     │  ─── key share (ECDH public key) ──▶│
      │                                │
      │         ServerHello            │
-     │  ◀── 選定的 cipher suite ────   │
-     │  ◀── key share（server 公鑰）── │
-     │  ◀── Certificate（X.509）────   │
-     │  ◀── CertificateVerify ──────   │
-     │  ◀── Finished（MAC）─────────   │
+     │  ◀── chosen cipher suite ────  │
+     │  ◀── key share (server pubkey) │
+     │  ◀── Certificate (X.509) ────  │
+     │  ◀── CertificateVerify ──────  │
+     │  ◀── Finished (MAC) ─────────  │
      │                                │
-     │  （雙方用 ECDH 計算共同 secret）  │
-     │  （衍生 session key）           │
+     │  [Both derive shared secret via ECDH]
+     │  [Session keys derived]        │
      │                                │
-     │  Finished（MAC）               │
+     │  Finished (MAC)                │
      │  ───────────────────────────▶  │
      │                                │
-     │  ====== 加密通道建立 ======     │
-     │  Application Data（加密）───▶   │
-     │  ◀─ Application Data（加密）─── │
+     │  ====== Encrypted channel ======
+     │  Application Data (encrypted) ──▶  │
+     │  ◀─ Application Data (encrypted) ──│
 ```
 
 ### 為什麼用 ECDH 而不是 RSA 交換 key
+
+**ECDH（Elliptic Curve Diffie-Hellman）是什麼：** 一種讓兩方在不安全的通道上，不傳送 secret 本身，就能協商出相同的 shared secret 的演算法。類比：兩人各自混入一種顏色，交換混色後的結果，各自再加入自己的顏色，最終得到相同的混合色，但旁觀者只看到交換過程中的中間色，無法還原最終色。
 
 TLS 1.3 移除了 RSA key exchange，因為：
 ```
@@ -136,20 +140,17 @@ MQTT 是 IoT 裝置的標準訊息協定，設計為低頻寬、低功耗。
 
 ### 核心概念
 
-```
-Publish/Subscribe 模式（和 Kafka 類似）：
+Publish/Subscribe 模式（和 Kafka 類似）：不需要直連，裝置和後端不需要知道對方的 IP；非同步，發布者不等接收者回應。
 
-裝置（Publisher）         Broker（MQTT Server）        後端（Subscriber）
+```
+Device (Publisher)        Broker (MQTT Server)        Backend (Subscriber)
     │  PUBLISH             │                               │
     │  topic: rot/status   │                               │
     │  payload: {"ok":1}   │                               │
     │─────────────────────▶│                               │
     │                      │  PUBLISH                      │
     │                      │─────────────────────────────▶ │
-    │                      │  （所有訂閱 rot/# 的都收到）   │
-
-不需要直連：裝置和後端不需要知道對方的 IP
-非同步：發布者不等接收者回應
+    │                      │  (all subscribers of rot/# receive this)
 ```
 
 ### MQTT Topic 設計

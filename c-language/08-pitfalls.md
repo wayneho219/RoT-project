@@ -1,12 +1,34 @@
 ---
-tags: [c-language, module]
-topic: c-language
-week: "1-2"
+date: 2026-06-15
+type: tech-note
+tags: [c-language, embedded, module]
+output: study
+status: complete
 ---
+
+> [!abstract] TL;DR
+> C 的 Undefined Behavior（UB）讓編譯器做出意外最佳化，嵌入式安全程式碼必須避免有符號溢位、strict aliasing 違規、buffer overflow、未初始化變數、整數截斷等陷阱。RoT 的驗證邏輯若有 UB，攻擊者可能控制執行流。
+
 # C 語言 Module 8：常見陷阱與 Undefined Behavior
 
-C 的許多行為在規格書裡是「未定義」的（Undefined Behavior，UB）。  
-UB 不一定會 crash，可能默默產生錯誤結果，在嵌入式安全程式碼裡非常危險。
+C 的許多行為在規格書裡是「未定義」的（Undefined Behavior，UB）。
+
+**UB 是什麼、為什麼危險：** C 規格書說「這種行為是 undefined」，意思是編譯器可以假設這種情況「永遠不會發生」，然後基於這個假設做激進的最佳化。結果是你的程式碼可能被靜默地刪掉或改掉：
+
+```c
+// 典型 UB 最佳化陷阱：
+int32_t x = get_sensor_value();
+if (x + 1 < x) {       // 開發者想檢查整數溢位
+    handle_overflow();
+}
+// 編譯器：「有符號整數溢位是 UB，我可以假設它不會發生」
+// 「所以 x+1 < x 永遠是 false」
+// 「所以把整個 if 刪掉」
+// → handle_overflow() 永遠不會執行！即使真的溢位了
+```
+
+> [!warning] UB 的危險性
+> UB 不一定會 crash，可能默默產生錯誤結果——編譯器靜默刪掉你的安全檢查。在 RoT 這類安全關鍵程式碼裡，UB 可能讓攻擊者繞過驗證邏輯。
 
 ---
 
@@ -26,12 +48,23 @@ y = y + 1;  // 確定變成 0，這是定義好的行為
 
 ### 整數提升（Integer Promotion）
 
+**整數提升是什麼：** C 的算術運算（+、-、*、/）規定，小於 `int` 的型別（`uint8_t`、`uint16_t`）在運算前會先自動「提升」成 `int`（32-bit）再計算。
+
 ```c
 uint8_t a = 200;
 uint8_t b = 100;
-uint8_t result = a + b;  // 先提升成 int 計算（300），再截斷成 uint8_t（44）
 
-// 如果想要確定截斷行為，明確轉型
+// 你以為：200 + 100 = 300，但 uint8_t 最大 255，所以溢位變 44
+// 實際上：a 和 b 都先提升成 int，計算出 300，然後存回 uint8_t 時截斷
+uint8_t result = a + b;  // 300 截斷 → 44（300 - 256 = 44）
+
+// 計算過程：
+// a = 0b11001000 (200) → 提升 → int 0x000000C8 (200)
+// b = 0b01100100 (100) → 提升 → int 0x00000064 (100)
+// 相加 → int 0x0000012C (300)
+// 截斷回 uint8_t → 0x2C (44)
+
+// 如果想要確定截斷行為，明確轉型（讓讀者知道你知道這會截斷）
 uint8_t result = (uint8_t)(a + b);
 ```
 
@@ -53,24 +86,27 @@ y >> 1;   // 確定是 0x40000000
 
 ### Strict Aliasing（別名規則）
 
+**Strict Aliasing 是什麼：** C 規格規定，不同型別的指標「不可能指向同一個記憶體位置」（除了 `char *`）。編譯器基於這個假設做最佳化：如果你有 `uint32_t *p` 和 `float *q`，編譯器假設它們不指向同一塊記憶體，可以重排讀寫順序。
+
 ```c
 uint32_t reg_value = 0xDEADBEEF;
 
-// 這樣做在許多情況是 UB（通過不同型別的指標存取同一記憶體）
+// 這樣做是 UB（強制把 uint32_t 的位址解釋成 float 指標）
 float *fp = (float *)&reg_value;
-float f = *fp;  // 可能被編譯器最佳化掉，因為它「認為」float 和 uint32 不會是同一記憶體
+float f = *fp;
+// 編譯器可能最佳化掉這個讀取，因為「float* 不可能和 uint32_t* 指同一位址」
 
-// 安全做法：用 memcpy（編譯器知道 memcpy 可以跨型別）
+// 安全做法 1：用 memcpy（編譯器知道 memcpy 可以跨型別，不受 aliasing 限制）
 float f;
 memcpy(&f, &reg_value, sizeof(float));
 
-// 或用 union（C99 以後合法）
+// 安全做法 2：用 union（C99 以後合法）
 union { uint32_t u; float f; } conv;
 conv.u = reg_value;
-float result = conv.f;
+float result = conv.f;  // 合法，union 允許用不同型別讀同一記憶體
 ```
 
-嵌入式常需要把暫存器值解釋成不同型別，要用 union 或 memcpy。
+嵌入式常需要把暫存器值解釋成不同型別（例如把 ADC 原始值解釋成 IEEE754 float），要用 union 或 memcpy，不要直接轉型指標。
 
 ### NULL Dereference
 
@@ -118,6 +154,25 @@ void copy_data_safe(const uint8_t *src, uint32_t len) {
         buffer[i] = src[i];
     }
 }
+```
+
+**Buffer Overflow 示意：**
+
+```
+buffer[16]，位址從 0x100 開始：
+
+正常（len=16）：
+位址: 0x100                    0x10F  0x110
+     ┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──────────┐
+     │  │  │  │  │  │  │  │  │  │  │  │  │  │  │  │  │return addr│
+     └──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──────────┘
+      0  1  2  3  4  5  6  7  8  9  ...            15  ← 合法邊界
+
+溢位（len=20）：
+     ┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──────────┐
+     │  │  │  │  │  │  │  │  │  │  │  │  │  │  │  │  │OVERWRITE!│
+     └──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──────────┘
+                                                    攻擊者可控制跳到任意位址 ✗
 ```
 
 RoT 的 firmware 驗證邏輯若有 buffer overflow，攻擊者可以控制執行流。
@@ -217,6 +272,18 @@ if (signed_val < unsigned_val) {
 }
 ```
 
+**有號/無號比較陷阱：**
+
+```
+signed_val   = -1     二進位：1111 1111 1111 1111 1111 1111 1111 1111
+                                                                    ↓ 解釋成 uint32_t
+unsigned_val = 100    二進位：0000 0000 0000 0000 0000 0000 0110 0100
+
+比較時 -1 被轉成 uint32_t = 0xFFFFFFFF = 4,294,967,295
+
+4,294,967,295 < 100 → false！（你以為是 true）
+```
+
 用 `-Wall` 編譯，GCC 會對這種比較發出警告。
 
 ---
@@ -239,13 +306,14 @@ CFLAGS = -Wall -Wextra -Werror -std=c99
 
 ## 小結：嵌入式安全程式碼的規則
 
-1. 永遠初始化指標為 NULL，使用前檢查
-2. 陣列存取前永遠檢查邊界
-3. 跨型別存取記憶體用 `union` 或 `memcpy`
-4. 只對 `unsigned` 做位元運算和右移
-5. 整數截斷前先做範圍檢查
-6. 開啟所有警告，warning as error
-7. `sizeof` 只對陣列有效，傳進函式後要傳 `len` 參數
+> [!important] 七條守則
+> 1. 永遠初始化指標為 NULL，使用前檢查
+> 2. 陣列存取前永遠檢查邊界
+> 3. 跨型別存取記憶體用 `union` 或 `memcpy`（不要直接轉型指標）
+> 4. 只對 `unsigned` 做位元運算和右移
+> 5. 整數截斷前先做範圍檢查
+> 6. 開啟所有警告，warning as error（`-Wall -Wextra -Werror`）
+> 7. `sizeof` 只對陣列有效，傳進函式後要傳 `len` 參數
 
 ---
 
@@ -257,4 +325,9 @@ CFLAGS = -Wall -Wextra -Werror -std=c99
 - 硬體暫存器操作的基礎
 - 在面試中解釋自己程式碼的能力
 
-下一步：→ `arm-architecture/` 目錄
+> [!tip] 複習問題
+> 1. 為什麼 `int32_t x = INT32_MAX; x + 1;` 是 UB？編譯器會做什麼最佳化？安全的替代方案？
+> 2. Strict aliasing 是什麼？為什麼不能直接 `float *fp = (float *)&uint32_val;`？用 union 怎麼寫？
+> 3. 整數截斷如何成為安全漏洞？用 0x100000100 截斷成 `uint8_t` 的例子說明如何防護。
+
+下一步：→ `[[arm-architecture/01-armv8a-overview|ARM Architecture]]` 目錄

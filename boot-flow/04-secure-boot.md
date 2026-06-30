@@ -83,6 +83,8 @@ int verify_firmware(uint32_t fw_addr) {
 
 ## Constant-Time 比較（安全關鍵）
 
+**Timing attack（計時攻擊）是什麼：** 攻擊者透過測量程式執行時間來推測內部資料。例如普通的 `memcmp` 一旦發現某 byte 不同就立刻返回，所以前幾個 byte 正確的話花的時間更長。攻擊者可以用這個時間差猜測正確的 hash 值，byte by byte 推算出來。
+
 一般 `memcmp` 在比較失敗時提早返回，這會洩漏 timing 資訊：
 
 ```c

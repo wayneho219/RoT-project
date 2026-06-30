@@ -34,6 +34,20 @@ start_kernel()
 
 ## Device Tree（設備樹）
 
+**Device Tree 是什麼：** 用一個結構化文字檔描述硬體有什麼（哪些 UART、位址在哪、用哪個中斷），讓 Linux kernel 不需要為每個 SoC 各自修改。
+
+```
+沒有 Device Tree（舊做法）：
+  kernel 程式碼裡 hard-code：UART1 在 0x40C00000，中斷號 27...
+  每個 SoC 要改 kernel 原始碼 → 維護成本極高
+
+有 Device Tree：
+  硬體描述寫在 .dts 檔（文字格式）
+  編譯成 .dtb（binary，Device Tree Blob）
+  U-Boot 把 dtb 位址傳給 kernel
+  kernel 啟動時讀 dtb，自動探測有哪些硬體
+```
+
 Linux 用 Device Tree 描述硬體拓撲，而非把硬體資訊 hard-code 進 kernel：
 
 ### DTB（Device Tree Blob）結構
@@ -83,6 +97,16 @@ booti ${kernel_addr_r} - ${fdt_addr_r}
 ---
 
 ## initramfs（初始 RAM 檔案系統）
+
+**initramfs 是什麼：** 一個壓縮的迷你 Linux 根目錄（root filesystem），存在記憶體裡。Linux 啟動時先掛載它，用來載入驅動程式、解密磁碟等，然後才切換到真正的 rootfs（在 SD 卡或 eMMC）。
+
+```
+為什麼需要 initramfs：
+  Linux kernel 本身不包含所有驅動程式
+  要讀 eMMC 先要有 eMMC 驅動，但驅動在 eMMC 上... 雞生蛋問題
+  解法：initramfs 放在記憶體（U-Boot 載入），包含足夠的驅動，
+        掛載真正的 rootfs 後再把控制權交出去
+```
 
 Linux 啟動時先掛載 initramfs（在記憶體中），再切換到真正的 rootfs：
 
