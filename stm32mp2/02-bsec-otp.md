@@ -10,45 +10,44 @@ week: "9+"
 **BSEC（Boot and Security Controller）** 管理 STM32MP215F 的 OTP fuses：
 
 ```
-OTP（One-Time Programmable）
-  └── 一次性燒錄的記憶體（每個 bit 只能從 0 → 1）
-  └── 斷電後資料永久保留
-  └── 存放：ROTPKH、HUK、debug 鎖定、rollback counter
+OTP (One-Time Programmable)
+  └── Each bit can only be set 0 -> 1 (irreversible)
+  └── Data persists across power cycles
+  └── Stores: ROTPKH, HUK, debug lock, rollback counter
 
-BSEC 的職責：
-  ├── 管理 OTP 讀寫（需要特定 voltage 才能燒錄）
-  ├── Secure 側：完整 OTP 存取
-  └── Non-Secure 側：只能讀非敏感的 OTP
+BSEC responsibilities:
+  ├── Manage OTP read/write (requires specific voltage to program)
+  ├── Secure side: full OTP access
+  └── Non-Secure side: read non-sensitive OTP only
 ```
 
 ---
 
 ## OTP 空間規劃（STM32MP215F）
 
-```
 OTP 共有 384 個 32-bit words（12 KB）
+```
+Word  0- 7   Upper OTP (ST reserved)
+Word  8-11   Secure OTP (crypto, Secure-only read)
+  Word  8    ROTPKH[0:31]       Root of Trust PK Hash (bits 0-31)
+  Word  9    ROTPKH[32:63]
+  Word 10    ROTPKH[64:95]
+  Word 11    ROTPKH[96:127]     total 128 bits = first half of SHA-256
 
-Word 0–7    上部 OTP（ST 保留）
-Word 8–11   安全 OTP（加密相關，非 Secure 無法讀）
-  Word 8    ROTPKH[0:31]       Root of Trust PK Hash（低 32 bits）
-  Word 9    ROTPKH[32:63]
-  Word 10   ROTPKH[64:95]
-  Word 11   ROTPKH[96:127]     共 128 bits = SHA-256 取前半
-  
-Word 12     HUK[0:31]          Hardware Unique Key（低 32 bits）
-Word 13     HUK[32:63]
-Word 14     HUK[64:95]
-Word 15     HUK[96:127]        共 128 bits
+Word 12      HUK[0:31]          Hardware Unique Key (bits 0-31)
+Word 13      HUK[32:63]
+Word 14      HUK[64:95]
+Word 15      HUK[96:127]        total 128 bits
 
-Word 16     Config
-  Bit 0     SECURE_BOOT_EN     1 = 啟用 Secure Boot
-  Bit 1     JTAG_DISABLE       1 = 關閉 JTAG
-  Bit 2     BOOT_SRC_LOCK      1 = 鎖定 boot source
-  Bit 3     ECDSA_PK_SHA256    1 = ROTPKH 是 SHA-256（非 SHA-384）
+Word 16      Config
+  Bit 0      SECURE_BOOT_EN     1 = enable Secure Boot
+  Bit 1      JTAG_DISABLE       1 = disable JTAG
+  Bit 2      BOOT_SRC_LOCK      1 = lock boot source
+  Bit 3      ECDSA_PK_SHA256    1 = ROTPKH uses SHA-256 (not SHA-384)
 
-Word 17     FW_MIN_VERSION     Anti-rollback counter（bit 0–31 = 版本 0–31）
+Word 17      FW_MIN_VERSION     Anti-rollback counter (bit 0-31 = version 0-31)
 
-Word 18–383  使用者可用 OTP
+Word 18-383  User OTP (available)
 ```
 
 ---
@@ -142,15 +141,16 @@ void update_fw_min_version(uint32_t new_version) {
 
 ## HUK 使用注意事項
 
+HUK 使用規則：
 ```
-規則：
-  1. HUK 只在 Secure World 可讀（Word 12–15 設為 Secure-only OTP）
-  2. HUK 絕對不能直接用作 AES key（用 HKDF 衍生）
-  3. HUK 絕對不能傳出 M33 / Secure World
-  4. 用完立刻清除暫存器（memset）
-  
-  ST 的 SAES 硬體支援直接從 HUK 加載 key，key 值不經過 CPU
-  → 推薦用硬體 SAES，不要用軟體 AES
+Rules:
+  1. HUK readable only in Secure World (Word 12-15: Secure-only OTP)
+  2. Never use HUK directly as AES key — derive with HKDF
+  3. Never leak HUK outside M33 / Secure World
+  4. Clear registers immediately after use (memset)
+
+  ST SAES hardware supports loading key directly from HUK (key never reaches CPU)
+  -> Prefer hardware SAES over software AES
 ```
 
 ```c

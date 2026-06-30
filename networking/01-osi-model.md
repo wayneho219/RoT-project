@@ -11,16 +11,23 @@ OSI（Open Systems Interconnection）是**概念框架**，用來理解網路協
 實際網路用的是 TCP/IP 4 層，但面試幾乎必考 OSI。
 
 ```
-層級  名稱                  職責                        協定範例
-────────────────────────────────────────────────────────────────
-7    應用層 Application     提供應用程式的網路介面        HTTP, HTTPS, MQTT, DNS, FTP
-6    表示層 Presentation     資料格式轉換、加密、壓縮      TLS/SSL（有時放第 4 層）
-5    會話層 Session          管理連線的建立和結束          NetBIOS, RPC
-4    傳輸層 Transport        端對端可靠傳輸、流量控制      TCP, UDP
-3    網路層 Network          邏輯定址、路由               IP（IPv4/IPv6）, ICMP
-2    資料鏈結層 Data Link     實體位址（MAC）、錯誤偵測    Ethernet, Wi-Fi（802.11）
-1    實體層 Physical         訊號、媒介（電壓、頻率）      網路線、光纖、無線電波
+┌─────────────────────────────────────────────────────────────┐
+│  7  Application   │ HTTP, HTTPS, MQTT, DNS, FTP             │
+├─────────────────────────────────────────────────────────────┤
+│  6  Presentation  │ TLS/SSL (encryption, encoding)          │
+├─────────────────────────────────────────────────────────────┤
+│  5  Session       │ NetBIOS, RPC                            │
+├─────────────────────────────────────────────────────────────┤
+│  4  Transport     │ TCP, UDP                                │
+├─────────────────────────────────────────────────────────────┤
+│  3  Network       │ IP (IPv4/IPv6), ICMP                    │
+├─────────────────────────────────────────────────────────────┤
+│  2  Data Link     │ Ethernet, Wi-Fi (802.11)                │
+├─────────────────────────────────────────────────────────────┤
+│  1  Physical      │ Cable, fiber, radio waves               │
+└─────────────────────────────────────────────────────────────┘
 ```
+各層中文說明：7 應用層（提供應用程式網路介面）、6 表示層（格式轉換/加密/壓縮）、5 會話層（連線管理）、4 傳輸層（端對端可靠傳輸）、3 網路層（邏輯定址/路由）、2 資料鏈結層（MAC 位址/錯誤偵測）、1 實體層（訊號/媒介）
 
 ### 記憶口訣（由下到上）
 
@@ -35,27 +42,29 @@ Physical / Data Link / Network / Transport / Session / Presentation / Applicatio
 
 ### 一個 HTTPS 請求（`GET https://api.example.com/fw_version`）
 
+應用層（7）→ 表示層（6）→ 傳輸層（4）→ 網路層（3）→ 資料鏈結層（2）→ 實體層（1）
+
 ```
-應用層（7）：HTTP GET 請求
-    │  "GET /fw_version HTTP/1.1\r\nHost: api.example.com\r\n\r\n"
+Layer 7 (Application)
+    │  HTTP GET: "GET /fw_version HTTP/1.1\r\nHost: api.example.com\r\n\r\n"
     ▼
-表示層（6）：TLS 加密
-    │  把 HTTP 訊息加密成密文（AES-GCM）
+Layer 6 (Presentation) — TLS
+    │  Encrypt HTTP payload with AES-GCM
     ▼
-傳輸層（4）：TCP
-    │  加入 Port 號（來源: 54321，目的: 443）
-    │  加入序號（Sequence Number）確保有序
+Layer 4 (Transport) — TCP
+    │  Add port numbers (src: 54321, dst: 443)
+    │  Add sequence number for ordering
     ▼
-網路層（3）：IP
-    │  加入來源 IP、目的 IP
-    │  決定路由（經過哪些 router）
+Layer 3 (Network) — IP
+    │  Add src IP, dst IP
+    │  Routing decision (which router to use)
     ▼
-資料鏈結層（2）：Ethernet
-    │  加入 MAC Address（封裝成 Frame）
-    │  加入 CRC 錯誤檢查
+Layer 2 (Data Link) — Ethernet
+    │  Add MAC addresses (frame encapsulation)
+    │  Add CRC for error detection
     ▼
-實體層（1）：電訊號
-    │  0/1 轉換成電壓、光波或無線電波傳送
+Layer 1 (Physical)
+    │  Encode bits as voltage, light, or radio waves
 ```
 
 ---
@@ -65,14 +74,16 @@ Physical / Data Link / Network / Transport / Session / Presentation / Applicatio
 實際網路工程師用的模型（比 OSI 更接近實作）：
 
 ```
-TCP/IP 4 層          對應 OSI 層
-────────────────────────────────
-應用層 Application   OSI 5, 6, 7
-傳輸層 Transport     OSI 4
-網際網路層 Internet   OSI 3
-網路存取層 Network    OSI 1, 2
-Access
+┌─────────────────────┬──────────────────┐
+│  TCP/IP Layer       │  Maps to OSI     │
+├─────────────────────┼──────────────────┤
+│  Application        │  5, 6, 7         │
+│  Transport          │  4               │
+│  Internet           │  3               │
+│  Network Access     │  1, 2            │
+└─────────────────────┴──────────────────┘
 ```
+對應中文名：應用層、傳輸層、網際網路層、網路存取層
 
 ---
 
@@ -89,16 +100,17 @@ Access
 
 ```
 Client                    Server
-  │  SYN（seq=x）          │
+  │  SYN (seq=x)           │
   │─────────────────────▶ │
   │                        │
-  │  SYN-ACK（seq=y, ack=x+1）
+  │  SYN-ACK (seq=y,ack=x+1)
   │ ◀───────────────────── │
   │                        │
-  │  ACK（ack=y+1）        │
+  │  ACK (ack=y+1)         │
   │─────────────────────▶ │
   │                        │
-  │  連線建立，開始傳資料    │
+  │  [Connection established — data transfer begins]
+  │
 ```
 
 ### TCP 四次揮手（關閉連線）
@@ -139,18 +151,20 @@ Client         Server
 
 ## DNS（域名解析）
 
+輸入 `api.example.com` → DNS 查詢（UDP port 53）→ Resolver → 若 cache 沒有 → Root → TLD → NS → 回傳 IP
+
 ```
-瀏覽器輸入 api.example.com
+Browser: "api.example.com?"
   │
-  ▼ DNS 查詢（UDP port 53）
+  ▼  DNS query (UDP port 53)
 DNS Resolver
   │
-  ▼ 若 cache 沒有
-Root DNS Server → .com TLD Server → example.com 的 DNS Server
+  ▼  cache miss — recursive lookup
+Root DNS Server → .com TLD Server → example.com NS
   │
-  ▼ 回傳 IP：203.0.113.42
+  ▼  returns IP: 203.0.113.42
   │
-瀏覽器連到 203.0.113.42:443
+Browser connects to 203.0.113.42:443
 ```
 
 ---
@@ -159,18 +173,20 @@ Root DNS Server → .com TLD Server → example.com 的 DNS Server
 
 在 RoT 和嵌入式 Linux 裝置中，網路通常用於：
 
+OTA 更新、遠端驗證、裝置管理的通訊示意：
+
 ```
-OTA 更新（Over-the-Air）：
-  裝置 ─── HTTPS ──▶ OTA Server
-  下載新 firmware → M33 驗章 → 更新 NOR Flash
+[OTA Update]
+  Device ─── HTTPS ──▶ OTA Server
+  download firmware → M33 verify signature → write NOR Flash
 
-遠端驗證（Remote Attestation）：
-  裝置 ─── TLS + MQTT ──▶ 驗證服務
-  裝置產生含硬體簽章的 report → 服務端驗證裝置真實性
+[Remote Attestation]
+  Device ─── TLS + MQTT ──▶ Attestation Service
+  device generates hardware-signed report → server verifies authenticity
 
-裝置管理：
-  裝置 ─── MQTT ──▶ IoT Platform（AWS IoT、Azure IoT Hub）
-  回報狀態、接收命令
+[Device Management]
+  Device ─── MQTT ──▶ IoT Platform (AWS IoT / Azure IoT Hub)
+  report status, receive commands
 ```
 
 ---

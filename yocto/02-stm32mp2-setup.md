@@ -11,13 +11,13 @@ ST 提供 **OpenSTLinux**（基於 Yocto 的 STM32MP2 官方 Linux 發行版）�
 
 ```
 repo: https://github.com/STMicroelectronics/meta-st-stm32mp
-版本: Kirkstone（LTS）或 Scarthgap
+version: Kirkstone (LTS) or Scarthgap
 
-包含：
-  ├── meta-st-stm32mp/    STM32MP SoC layer
-  ├── meta-st-openstlinux/  ST 的 distro layer
-  ├── BSP（kernel config、devicetree）
-  └── 預編譯的 TF-A / OP-TEE recipe
+includes:
+  ├── meta-st-stm32mp/      STM32MP SoC layer
+  ├── meta-st-openstlinux/  ST distro layer
+  ├── BSP (kernel config, devicetree)
+  └── pre-built TF-A / OP-TEE recipes
 ```
 
 ---

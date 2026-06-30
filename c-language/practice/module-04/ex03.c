@@ -18,13 +18,34 @@
 #include <stdint.h>
 #include <stdio.h>
 
+typedef void (*Command)(void);
 /* TODO: 實作三個 command handler */
+void version_handler(void){
+    printf("version: 1.0.0\n");
+}
 
+void verify_firmware_handler(void){
+    printf("verifying firmware...\n");
+}
+
+void lock_handler(void){
+    printf("locking device\n");
+}
 /* TODO: 定義 jump table */
+Command dispatch_table[] = {
+    version_handler,
+    verify_firmware_handler,
+    lock_handler,
+};
 
+#define CMD_COUNT 3
 /* TODO: 實作 dispatch(cmd_id)，用 jump table 分派 */
 void dispatch(uint8_t cmd_id) {
-    /* ... */
+    if (cmd_id < CMD_COUNT){
+        dispatch_table[cmd_id]();
+    }else {
+        printf("unknown command\n");
+    }
 }
 
 int main(void) {

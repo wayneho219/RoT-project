@@ -1,8 +1,14 @@
 ---
-tags: [c-language, module]
-topic: c-language
-week: "1-2"
+date: 2026-06-15
+type: tech-note
+tags: [c-language, embedded, module]
+output: study
+status: complete
 ---
+
+> [!abstract] TL;DR
+> 函式指標讓 C 實現 callback、jump table、多型 driver 介面，是 RoT 中斷分派、bootloader 指令處理的核心機制。ARM 向量表本身就是函式指標陣列。語法類比 C# 的 `delegate`。
+
 # C 語言 Module 4：函式指標
 
 ## 概念
@@ -30,6 +36,20 @@ op = &add;        // 這樣也合法
 int result = op(3, 4);   // 7
 op = sub;
 result = op(3, 4);       // -1
+```
+
+**函式指標概念示意：**
+
+```
+一般呼叫（固定）：
+  add(3, 4) ──────────────────────────→ [ add 的機器碼 ] → 回傳 7
+
+透過指標呼叫（可切換）：
+  op = add;
+  op(3, 4)  ──→ [ 位址 0x8100 ] ──→ [ add 的機器碼 ] → 回傳 7
+
+  op = sub;   ← 切換指向的目標
+  op(3, 4)  ──→ [ 位址 0x8200 ] ──→ [ sub 的機器碼 ] → 回傳 -1
 ```
 
 語法記憶：`回傳型別 (*指標名)(參數型別列表)`
@@ -115,6 +135,18 @@ void handle_command(uint8_t cmd_id) {
 }
 ```
 
+**Jump Table 執行流程：**
+
+```mermaid
+flowchart LR
+    input([收到 cmd_id]) --> check{cmd_id < 3?}
+    check -->|否| drop([忽略])
+    check -->|是| table[dispatch_table]
+    table -->|id=0| r[cmd_reset]
+    table -->|id=1| s[cmd_status]
+    table -->|id=2| v[cmd_verify]
+```
+
 RoT 的指令處理幾乎都是這個模式。
 
 ---
@@ -151,6 +183,27 @@ int verify_firmware(FlashDriver *drv) {
 }
 
 verify_firmware(&nor_driver);
+```
+
+**介面模式示意：**
+
+```
+verify_firmware() 只認識 FlashDriver 介面，不管底層是什麼硬體：
+
+呼叫端（不知道是哪種硬體）
+verify_firmware() ──→  FlashDriver NOR
+                       ┌───────────────────┐
+                       │ .read  ────────── ├──→ nor_read()
+                       │ .write ────────── ├──→ nor_write()
+                       └───────────────────┘
+
+                       FlashDriver eMMC
+                       ┌───────────────────┐
+                       │ .read  ────────── ├──→ emmc_read()
+                       │ .write ────────── ├──→ emmc_write()
+                       └───────────────────┘
+
+換硬體只需要換 driver，verify_firmware 的程式碼完全不用改。
 ```
 
 這讓 RoT 的驗證邏輯可以換不同儲存媒介而不改程式碼。
@@ -201,4 +254,9 @@ Handler h = handler_a;          // 型別不符，undefined behavior
 
 ## 下一步
 
-→ [Module 5：嵌入式關鍵語法](05-embedded-patterns.md)
+> [!tip] 複習問題
+> 1. 函式指標的宣告語法是什麼？`typedef` 如何簡化？寫出一個接受兩個 `int`、回傳 `int` 的函式指標型別。
+> 2. Jump table 比 switch-case 的優點是什麼？在 RoT 的哪個場景會用到？
+> 3. 用函式指標 struct 模擬 interface 讓 `verify_firmware()` 得到什麼好處？換硬體時需要改哪些程式碼？
+
+→ [[05-embedded-patterns|Module 5：嵌入式關鍵語法]]

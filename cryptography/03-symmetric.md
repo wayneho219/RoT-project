@@ -20,6 +20,10 @@ AES-256：
 
 ## AES 的操作模式
 
+**為什麼需要操作模式：** AES 本身設計只加密固定 16 bytes（一個 block）。要加密比 16 bytes 更長的資料，需要定義「怎麼把多個 block 連在一起」，這就是操作模式。
+
+**AEAD（Authenticated Encryption with Associated Data）是什麼：** 加密的同時產生一個「認證標籤（tag）」，解密時先驗 tag，tag 不符就拒絕解密。好處是加密和完整性驗證一次完成，不需要另外加 HMAC。
+
 AES 本身只加密 16 bytes，要加密長資料需要選擇**操作模式**：
 
 | 模式 | 完整性 | 特性 |
@@ -204,6 +208,20 @@ memset(storage_key, 0, sizeof(storage_key));
 ---
 
 ## 隨機數產生（TRNG）
+
+**TRNG vs PRNG 的差別：**
+
+```
+PRNG（Pseudo-Random Number Generator，偽隨機）：
+  用數學公式從一個 seed 產生一串「看起來很隨機」的數字
+  給定相同的 seed → 輸出完全可預測
+  攻擊者若知道 seed 或推算出 seed → 破解所有 key
+
+TRNG（True Random Number Generator，真隨機）：
+  從物理現象取得熵（entropy）：CPU 熱雜訊、電路噪音
+  真正不可預測，即使攻擊者知道演算法也無法預測輸出
+  密碼學操作（產生 key、nonce）必須用 TRNG
+```
 
 密碼學操作需要真隨機數（TRNG），不能用偽隨機數（PRNG）：
 

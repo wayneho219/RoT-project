@@ -26,18 +26,47 @@
 #include <stdio.h>
 #include <string.h>
 
-/* TODO: 定義 StorageDriver */
+typedef struct{
+    const char* name;
+    int (*read)(uint32_t addr, uint8_t *buf, uint32_t len);
+} StorageDriver;
 
+int nor_read(uint32_t addr, uint8_t *buf, uint32_t len){
+    for (int i = 0; i < len; i++){
+        buf[i] = 0xAA;
+    }
+    return 0;
+}
 
-/* TODO: 實作 nor_read */
+int emmc_read(uint32_t addr, uint8_t *buf, uint32_t len){
+    for (int i = 0; i < len; i++){
+        buf[i] = 0xBB;
+    }
+    return 0;
+}
 
-/* TODO: 實作 emmc_read */
+void verify_firmware(StorageDriver driver, uint32_t addr, uint8_t *buf, uint32_t len){
+    driver.read(addr, buf, len);
+    printf("[%s] read:", driver.name);
+    for (int i = 0; i < len; i++) {
+        printf(" 0x%02X", buf[i]);
+    }
+    printf("\n");
+}
 
-/* TODO: 實作 verify_firmware */
 
 
 int main(void) {
     /* TODO: 定義 nor_driver 和 emmc_driver，並各呼叫一次 verify_firmware */
 
+    uint8_t buf[4];
+    StorageDriver nor_driver;
+    StorageDriver emmc_driver;
+    nor_driver.name = "nor";
+    emmc_driver.name = "emmc";
+    nor_driver.read = nor_read;
+    emmc_driver.read = emmc_read;
+    verify_firmware(nor_driver, 0, buf, 4);
+    verify_firmware(emmc_driver, 0, buf, 4);
     return 0;
 }

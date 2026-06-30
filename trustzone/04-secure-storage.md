@@ -56,45 +56,51 @@ int bsec_write(uint32_t otp_word_idx, uint32_t value) {
 
 Private Key 不能明文存在 Flash。設計：
 
+NOR Flash 佈局（Secure Storage 位於 0x0080_0000，包含加密 Key Blob 與防重放計數器）：
 ```
-NOR Flash 佈局：
-  ┌─────────────────────────────┐
-  │ M33 Secure Firmware（可執行）│ 0x0000_0000
-  ├─────────────────────────────┤
-  │ A35 Firmware（待驗證）       │ 0x0010_0000
-  ├─────────────────────────────┤
-  │ Secure Storage               │ 0x0080_0000
-  │  ├── AES-256 Key Blob        │
-  │  │    └── AES-GCM 加密的 data│
-  │  ├── ECDSA Private Key Blob  │
-  │  │    └── 用 HUK 加密        │
-  │  └── Replay Protection Block │
-  │       └── 計數器（防重放攻擊）│
-  └─────────────────────────────┘
+  ┌──────────────────────────────────────┐
+  │ M33 Secure Firmware (executable)     │ 0x0000_0000
+  ├──────────────────────────────────────┤
+  │ A35 Firmware (pending verification)  │ 0x0010_0000
+  ├──────────────────────────────────────┤
+  │ Secure Storage                       │ 0x0080_0000
+  │  ├── AES-256 Key Blob                │
+  │  │    └── AES-GCM encrypted data     │
+  │  ├── ECDSA Private Key Blob          │
+  │  │    └── encrypted with HUK         │
+  │  └── Replay Protection Block         │
+  │       └── counter (anti-replay)      │
+  └──────────────────────────────────────┘
 ```
 
 ### HUK（Hardware Unique Key）
 
-HUK 是晶片出廠時燒在 OTP 中的唯一金鑰，用來加密其他金鑰：
+**HUK 是什麼：** 每顆晶片出廠時，ST 在工廠把一個隨機的 128-bit 金鑰燒進 OTP，這個金鑰每顆晶片都不一樣，稱為 HUK（Hardware Unique Key）。HUK 只能在 Secure World 讀取，Normal World 讀不到。
 
-```
-HUK（OTP，對外不可見）
-  └── 用 HKDF 衍生 Storage Key
-        └── 用 AES-256-GCM 加密 Private Key
-              └── 密文存入 NOR Flash
-```
+HUK 不直接用來加密，而是用來「衍生」其他金鑰：
 
-即使攻擊者讀取了 NOR Flash，沒有 HUK 也無法解密。
+HUK 存於 OTP，只有 Secure World 可讀；衍生出的 Storage Key 用於加密 Private Key，密文存入 NOR Flash：
+```
+HUK (OTP, Secure World only, never exposed)
+  └── HKDF (key derivation, label="storage") --> Storage Key (128/256 bits)
+        └── AES-256-GCM encrypt --> Private Key ciphertext
+              └── ciphertext stored in NOR Flash
+```
+HKDF（HMAC-based Key Derivation Function）：用 HUK + label 衍生出用途明確的金鑰，不同用途使用不同衍生金鑰，HUK 本身永遠不直接使用。
+
+即使攻擊者讀取了整個 NOR Flash，沒有 HUK 也無法解密 Private Key。
 
 ---
 
 ## AES-GCM 加密 Blob 格式
 
+**nonce（Number used ONCE）是什麼：** AES-GCM 每次加密時需要一個隨機的 12-byte 數字，確保即使用同一把 key 加密兩次相同的明文，密文也不同。nonce 必須每次都不同，否則攻擊者可以比較兩次密文推算出 key。
+
 ```c
 typedef struct __attribute__((packed)) {
     uint8_t  magic[4];       // "SKEY"
     uint32_t version;        // Blob 版本（防 downgrade）
-    uint8_t  nonce[12];      // AES-GCM nonce（每次加密隨機產生）
+    uint8_t  nonce[12];      // AES-GCM nonce（每次加密用硬體 RNG 隨機產生）
     uint32_t ciphertext_len; // 加密資料長度
     uint8_t  ciphertext[];   // AES-GCM 加密的 key 資料
     // 緊接在 ciphertext 後面：
@@ -174,26 +180,29 @@ int secure_key_load(const SecureKeyBlob *blob, uint8_t *key_out) {
 
 ## 金鑰生命週期
 
+**Provisioning（量產燒錄）是什麼：** 設備在工廠生產時，把必要的金鑰和設定燒進晶片的過程。這個步驟在出貨給客戶之前完成，通常在安全的生產環境（HSM = 硬體安全模組）中執行。
+
+金鑰生命週期分三個階段：生產線 Provisioning → 設備 Runtime → Key Rotation：
 ```
-Provisioning（生產線）
-  │  1. 產生 ECDSA key pair（在 HSM 中）
-  │  2. 燒錄 HUK 到 OTP（晶片出廠時已完成）
-  │  3. 燒錄 ROTPKH（Public Key Hash）到 OTP
-  │  4. 用 HUK 加密 Private Key，存入 NOR Flash
+Provisioning (factory)
+  │  1. generate ECDSA key pair (inside HSM)
+  │  2. burn HUK to OTP (done at chip factory)
+  │  3. burn ROTPKH (Public Key Hash) to OTP
+  │  4. encrypt Private Key with HUK, store in NOR Flash
   ▼
 
-Runtime（設備運行）
-  │  1. M33 從 NOR Flash 讀取 encrypted key blob
-  │  2. 用 HUK 解密（key 在 Secure SRAM，永不傳給 A35）
-  │  3. 用 ECDSA private key 驗證 firmware 簽章
-  │  4. 用完後清除 Secure SRAM
+Runtime (device operation)
+  │  1. M33 reads encrypted key blob from NOR Flash
+  │  2. decrypt with HUK (key stays in Secure SRAM, never sent to A35)
+  │  3. verify firmware signature with ECDSA private key
+  │  4. wipe Secure SRAM after use
   ▼
 
-Key Rotation（金鑰更換）
-  │  1. 產生新的 key pair
-  │  2. 更新 OTP rollback counter
-  │  3. 用新 HUK + 新 counter 加密新 key
-  │  4. 更新 NOR Flash
+Key Rotation
+  │  1. generate new key pair
+  │  2. increment OTP rollback counter
+  │  3. encrypt new key with HUK + new counter
+  │  4. update NOR Flash
 ```
 
 ---

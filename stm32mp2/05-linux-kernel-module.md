@@ -48,6 +48,16 @@ module_exit(rot_ipc_exit);
 
 ## 共享記憶體映射到 Kernel
 
+**ioremap 是什麼：** Linux kernel 不能直接用實體位址存取記憶體（因為 kernel 跑在虛擬位址空間）。`ioremap` 把一段實體位址映射到 kernel 的虛擬位址空間，讓你用 `readl`/`writel` 存取硬體暫存器或共享記憶體。
+
+ioremap 映射流程：
+```
+Physical addr 0x20020000 (M33 shared memory)
+  -> ioremap(0x20020000, 4096)
+  -> kernel virtual addr (e.g. 0xFFFF8000_12345000)
+  -> read/write via virtual addr
+```
+
 M33 和 A35 透過 NS SRAM 通訊，Linux 需要用 `ioremap` 映射這段實體位址：
 
 ```c

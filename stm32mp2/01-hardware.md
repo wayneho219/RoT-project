@@ -5,34 +5,103 @@ week: "9+"
 ---
 # STM32MP2 Module 1：硬體架構
 
+## 開發板規格（STM32MP215F-DK）
+
+**型號**：STM32MP215F-DK（板卡編號 MB2059，晶片 STM32MP215FAN3）
+
+**初次發布**：2025 年 10 月，文件為 Revision 1
+
+### 處理器
+
+| 核心 | 架構 | 速度 | 用途 |
+|------|------|------|------|
+| Cortex-A35 | ARMv8-A（64-bit） | 最高 1.5 GHz | Linux、應用程式、TF-A |
+| Cortex-M33 | ARMv8-M（32-bit） | 300 MHz | RoT、安全啟動、即時控制 |
+
+### 記憶體
+
+| 項目 | 規格 | 換算 |
+|------|------|------|
+| LPDDR4 DRAM | 16-Gbit | **2 GB**（16 ÷ 8） |
+
+### 板載周邊
+
+```
+Connectivity:
+  ├── Ethernet RJ45 (100 Mbit/s, RMII)
+  ├── USB 2.0 Type-C
+  ├── microSD slot
+  ├── M.2 E-Key (Wi-Fi / Bluetooth SDIO)
+  └── GPIO header (Raspberry Pi shield compatible)
+
+Display / Camera:
+  ├── LTDC display connector (LCD)
+  └── Dual-lane MIPI CSI-2 camera connector
+
+Debug:
+  ├── MIPI10 JTAG
+  ├── STDC14 debug connector
+  └── ST-LINK external (not onboard, unlike MP257F-DK)
+
+Misc:
+  ├── 4x user LEDs
+  ├── 2x user buttons, 1x tamper button, 1x reset button
+  ├── Wake-up button
+  ├── 4x boot pin switches (select boot source)
+  └── VBAT backup power
+```
+
+### 開發工具（官方支援）
+
+- **Yocto Project** — 建立完整 Linux image（主要開發環境）
+- **Buildroot** — 輕量替代方案
+- **STM32CubeIDE** — M33 韌體開發
+
+### 型號命名規則
+
+```
+STM32MP2 - 15 - F  - DK
+  │          │    │    └── Discovery Kit（開發板）
+  │          │    └──── F：Secure Boot + 密碼學硬體 + 最高頻率
+  │          └──────── 215：產品系列
+  └─────────────────── STM32MP2：STM32 Cortex MPU 系列
+```
+
+**F 型號代表**：
+- Secure Boot 硬體支援
+- PKA（ECDSA 加速）、HASH（SHA-256 加速）、RNG、SAES
+- 這是做 RoT 必須選 F 型號的原因
+
+---
+
 ## SoC 架構
 
 ```
-STM32MP215F（ARMv8）
+STM32MP215F (ARMv8)
 │
-├── Cortex-A35（AXI Domain）
-│     ├── EL3: TF-A BL31（Secure Monitor）
-│     ├── EL1-S: OP-TEE（可選）
+├── Cortex-A35 (AXI Domain)
+│     ├── EL3: TF-A BL31 (Secure Monitor)
+│     ├── EL1-S: OP-TEE (optional)
 │     └── EL1-NS: Linux
 │
-├── Cortex-M33 TD（Trusted Domain，APB Domain）
-│     ├── Secure SRAM（M33 私有）
-│     ├── BSEC/OTP 直接存取
-│     └── RCC control（A35 reset 控制）
+├── Cortex-M33 TD (Trusted Domain, APB Domain)
+│     ├── Secure SRAM (M33 private)
+│     ├── BSEC/OTP direct access
+│     └── RCC control (A35 reset)
 │
-├── 共享資源
-│     ├── NOR Flash（SPI）
-│     ├── DDR（LPDDR4，A35 主用，M33 可存取 NS 部分）
-│     ├── RCC（Reset and Clock Controller）
-│     └── GIC（Generic Interrupt Controller）
+├── Shared Resources
+│     ├── NOR Flash (SPI)
+│     ├── DDR (LPDDR4, primary A35, M33 accesses NS region)
+│     ├── RCC (Reset and Clock Controller)
+│     └── GIC (Generic Interrupt Controller)
 │
-└── 周邊
-      ├── UART（USART1–8）
-      ├── SPI（SPI1–6）
-      ├── I2C（I2C1–7）
-      ├── USB（OTG HS/FS）
-      ├── Ethernet（GMAC）
-      └── PKA、HASH、RNG（加密加速器）
+└── Peripherals
+      ├── UART (USART1-8)
+      ├── SPI (SPI1-6)
+      ├── I2C (I2C1-7)
+      ├── USB (OTG HS/FS)
+      ├── Ethernet (GMAC)
+      └── PKA, HASH, RNG (crypto accelerators)
 ```
 
 ---
@@ -40,20 +109,20 @@ STM32MP215F（ARMv8）
 ## 記憶體映射
 
 ```
-位址範圍               大小    說明
-─────────────────────────────────────────────────────
-0x0000_0000            ROM     Boot ROM（BootROM，只讀）
-0x0E00_0000  256 KB    SRAM    M33 Secure SRAM（SAU 保護）
-0x2000_0000  256 KB    SRAM    NS SRAM（M33/A35 共享通訊）
-0x4000_0000            APB1    Peripheral（UART、I2C、SPI...）
+Address Range          Size    Region  Description
+─────────────────────────────────────────────────────────────────
+0x0000_0000            -       ROM     Boot ROM (read-only)
+0x0E00_0000  256 KB    SRAM    M33 Secure SRAM (SAU protected)
+0x2000_0000  256 KB    SRAM    NS SRAM (M33/A35 shared IPC)
+0x4000_0000            APB1    Peripheral (UART, I2C, SPI...)
 0x4400_0000            APB2
 0x4800_0000            AHB1    GPIO
-0x5000_0000            AHB2    加密加速器（PKA、HASH、RNG）
-0x5800_0000            AHB3    BSEC、RCC
-0x6000_0000            FMC     Flexible Memory（NOR Flash）
-0x8000_0000  1 GB      DDR     LPDDR4（Non-Secure，給 Linux）
-0xFE00_0000  32 MB     DDR     Secure DDR（OP-TEE 用，TZASC 保護）
-0xE000_0000            PPB     Cortex-M33 系統暫存器（NVIC、MPU、SAU）
+0x5000_0000            AHB2    Crypto accelerators (PKA, HASH, RNG)
+0x5800_0000            AHB3    BSEC, RCC
+0x6000_0000            FMC     Flexible Memory (NOR Flash)
+0x8000_0000  1 GB      DDR     LPDDR4 (Non-Secure, Linux)
+0xFE00_0000  32 MB     DDR     Secure DDR (OP-TEE, TZASC protected)
+0xE000_0000            PPB     Cortex-M33 system regs (NVIC, MPU, SAU)
 ```
 
 ### 從 C 存取暫存器
@@ -129,14 +198,14 @@ void nor_erase_sector(uint32_t addr) {
 ## Flash 佈局規劃
 
 ```
-NOR Flash 32 MB（0x0000_0000 – 0x01FF_FFFF）
-  ├── 0x0000_0000 – 0x0001_FFFF  M33 Secure Firmware（128 KB）
-  ├── 0x0002_0000 – 0x0002_FFFF  Secure Storage（64 KB）
-  │                                （AES 加密的 private key blob）
-  ├── 0x0003_0000 – 0x0003_FFFF  Rollback Counter Area（64 KB）
-  ├── 0x0004_0000 – 0x00FF_FFFF  A35 Firmware（TF-A FIP）
-  │                                （已簽署，等待 M33 驗證）
-  └── 0x0100_0000 – 0x01FF_FFFF  空（後續用途）
+NOR Flash 32 MB  (0x0000_0000 - 0x01FF_FFFF)
+  ├── 0x0000_0000 - 0x0001_FFFF  M33 Secure Firmware    (128 KB)
+  ├── 0x0002_0000 - 0x0002_FFFF  Secure Storage          (64 KB)
+  │                                (AES-encrypted private key blob)
+  ├── 0x0003_0000 - 0x0003_FFFF  Rollback Counter Area   (64 KB)
+  ├── 0x0004_0000 - 0x00FF_FFFF  A35 Firmware (TF-A FIP)
+  │                                (signed, pending M33 verification)
+  └── 0x0100_0000 - 0x01FF_FFFF  Reserved (future use)
 ```
 
 ---
@@ -167,21 +236,21 @@ etzpc_set_periph_attr(ETZPC_PERIPH_USART2, ETZPC_NS);
 ## 硬體加密加速器
 
 ```
-PKA（Public Key Accelerator）
-  └── ECDSA 驗章（比純軟體快 ~10x）
+PKA (Public Key Accelerator)
+  └── ECDSA verify (~10x faster than software)
 
 HASH
-  └── SHA-256/SHA-512/MD5 硬體計算
+  └── SHA-256 / SHA-512 / MD5 hardware computation
 
-RNG（True RNG）
-  └── 熵源：CMOS 熱雜訊
-  └── 輸出：32-bit random words
-  └── 符合 NIST SP800-90A
+RNG (True RNG)
+  └── Entropy source: CMOS thermal noise
+  └── Output: 32-bit random words
+  └── Compliant with NIST SP800-90A
 
-SAES（Secure AES）
-  └── AES-128/192/256
-  └── 在 Secure Domain 執行，NS 不能存取
-  └── Key 可以直接從 HUK 加載（不傳到 CPU）
+SAES (Secure AES)
+  └── AES-128 / 192 / 256
+  └── Runs in Secure Domain only (NS cannot access)
+  └── Key loaded directly from HUK (never exposed to CPU)
 ```
 
 ---

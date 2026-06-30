@@ -7,22 +7,36 @@ week: "9+"
 
 ## 為什麼 M33 要跑 RTOS
 
+裸機 vs RTOS 比較：
 ```
-裸機（本專案初期做法）：
-  main() → 驗證 → while(1) { WFI; }
-  適合：功能單一、不需要並發
+Bare-metal (this project early stage):
+  main() -> verify -> while(1) { WFI; }
+  Suitable for: single function, no concurrency needed
 
-RTOS（更成熟的產品）：
-  多個任務同時進行：
-    Task 1: 持續監控 A35 heartbeat
-    Task 2: 處理 A35 的 Secure API 呼叫（透過 IPC）
-    Task 3: 週期性 integrity check（定期重新驗章）
-  適合：需要並發、有時序要求
+RTOS (mature product):
+  Multiple tasks running concurrently:
+    Task 1: monitor A35 heartbeat continuously
+    Task 2: handle A35 Secure API calls (via IPC)
+    Task 3: periodic integrity check (re-verify firmware)
+  Suitable for: concurrency, timing requirements
 ```
 
 ---
 
 ## FreeRTOS 核心概念
+
+**RTOS（Real-Time Operating System）是什麼：** 一個極小的作業系統核心，讓嵌入式設備可以「同時」執行多個任務（多工）。「即時」指的是任務的執行時間有保證（高優先級任務一定在指定時間內被執行）。FreeRTOS 整個 kernel 只有幾 KB，適合 Cortex-M33 這種 MCU。
+
+```
+Without RTOS (bare-metal):
+  main() executes tasks sequentially
+  Task A runs too long -> Task B must wait
+
+With RTOS (multi-task):
+  Scheduler switches tasks (every few milliseconds)
+  Task A and Task B appear to run "simultaneously"
+  Higher-priority task can preempt lower-priority task
+```
 
 ### Task（任務）
 
@@ -62,13 +76,12 @@ int main(void) {
 
 ### 優先級
 
+FreeRTOS 優先級：數字越大越高優先。
 ```
-優先級數字越大 = 越高優先（FreeRTOS 慣例）
-
-Priority 3: IPC 處理（快速回應）
-Priority 2: Heartbeat 監控
-Priority 1: 週期性 integrity check（非緊急）
-Priority 0: Idle task（FreeRTOS 自動建立）
+Priority 3: IPC handler       (fast response)
+Priority 2: Heartbeat monitor
+Priority 1: Periodic integrity check (non-urgent)
+Priority 0: Idle task         (auto-created by FreeRTOS)
 ```
 
 ### Queue（任務間通訊）

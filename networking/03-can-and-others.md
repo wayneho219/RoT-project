@@ -90,20 +90,22 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
 ### USB 在嵌入式的常見用途
 
+四種常見用途如下：
+
 ```
-燒錄模式（DFU）：
-  PC ─── USB ──▶ STM32MP215F（DFU mode）
-  下載 firmware、燒錄 Flash
+[DFU - Device Firmware Update]
+  PC ─── USB ──▶ STM32MP215F (DFU mode)
+  download firmware, write Flash
 
-CDC（虛擬串口）：
-  STM32 模擬成 COM Port
-  PC 端看到 /dev/ttyUSB0 或 COM3
+[CDC - Virtual COM Port]
+  STM32 emulates COM port
+  PC sees /dev/ttyUSB0 or COM3
 
-HID（Human Interface Device）：
-  嵌入式裝置模擬鍵盤、滑鼠、遊戲控制器
+[HID - Human Interface Device]
+  device emulates keyboard / mouse / gamepad
 
-Mass Storage：
-  嵌入式裝置當 USB 隨身碟（讀寫 SD Card）
+[Mass Storage]
+  device emulates USB flash drive (read/write SD card)
 ```
 
 ### USB 速度
@@ -137,12 +139,11 @@ dfu-util -D firmware.bin -a 0 -s 0x08000000  # 燒錄
 STM32MP215F-DK 有 GMAC（Gigabit MAC），配合外部 PHY chip：
 
 ```
-CPU ─── GMAC（MAC layer）─── MII/RGMII 介面 ─── PHY chip ─── RJ45
-
-MAC（Media Access Control）：軟體層（Linux 驅動）
-PHY（Physical Layer）：硬體晶片（處理電訊號）
-MII/RGMII：MAC 和 PHY 之間的介面
+CPU ─── GMAC (MAC layer) ─── MII/RGMII bus ─── PHY chip ─── RJ45
 ```
+- MAC（Media Access Control）：軟體層（Linux 驅動）
+- PHY（Physical Layer）：硬體晶片（處理電訊號）
+- MII/RGMII：MAC 和 PHY 之間的介面
 
 ### Linux Ethernet 配置
 

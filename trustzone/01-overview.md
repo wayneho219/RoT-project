@@ -23,15 +23,15 @@ week: "5-6"
 ## 兩個世界（World）
 
 ```
-Normal World（NW）               Secure World（SW）
+Normal World (NW)                Secure World (SW)
 ────────────────                 ────────────────
 Linux / Android                  OP-TEE / Custom Secure OS
-User apps                        Trusted Applications（TA）
-Drivers                          Secure Drivers（UART、Storage）
-
-記憶體：NW 的記憶體                記憶體：SW 的記憶體（對 NW 不可見）
-硬體：大多數硬體                   硬體：部分硬體只有 SW 能用（FIQ、安全計時器）
+User apps                        Trusted Applications (TA)
+Drivers                          Secure Drivers (UART, Storage)
+Memory: NW RAM                   Memory: SW RAM (invisible to NW)
+HW: most peripherals             HW: secure-only (FIQ, secure timer)
 ```
+NW 記憶體對 SW 可見；SW 記憶體對 NW 不可見。SW 獨佔部分硬體（FIQ、安全計時器）。
 
 ---
 
@@ -40,16 +40,13 @@ Drivers                          Secure Drivers（UART、Storage）
 在 RoT 專案中，TrustZone 保護：
 
 ```
-Secure World 持有：
-  ├── ECDSA Private Key（永遠不離開 SW）
-  ├── AES 加密金鑰（Secure Storage 用）
-  ├── 驗證邏輯程式碼（firmware 驗章、rollback 計數器）
-  └── OTP 讀取結果（ROTPK hash）
-
-Normal World 只能：
-  ├── 請求 SW 做加密運算（結果傳回，key 不傳出）
-  ├── 請求 Secure Storage 存取（TA 作仲介）
-  └── 透過 SMC / ioctl 呼叫 SW 提供的 API
+Secure World holds:                   Normal World can only:
+  ├── ECDSA Private Key (never         ├── request crypto ops (result
+  │    leaves SW)                      │    returned, key stays in SW)
+  ├── AES Key (Secure Storage)         ├── request Secure Storage access
+  ├── verify logic (fw sig,            │    (TA acts as broker)
+  │    rollback counter)               └── call SW APIs via SMC / ioctl
+  └── OTP read result (ROTPK hash)
 ```
 
 ---
@@ -68,17 +65,26 @@ Normal World 只能：
 
 ## TEE（Trusted Execution Environment）
 
-TrustZone 是硬體，**TEE** 是建立在 TrustZone 上的軟體環境標準：
+**TEE = 可信任執行環境**：TrustZone 是硬體隔離機制，TEE 是建立在上面的**軟體執行環境標準**，規定 Secure World 的 OS 和應用程式怎麼互動。
 
 ```
-GlobalPlatform TEE 規範
-  └── OP-TEE（開源 TEE 實作）
-        ├── TEE Core（EL1-S 的 OS）
-        ├── Trusted Applications（EL0-S）
-        │     ├── 用 GlobalPlatform TEE API 呼叫加密服務
-        │     └── 存取 Secure Storage
-        └── TEE Supplicant（NW 的 daemon，作 TA 的 helper）
+TrustZone (hardware)
+  └── TEE (Secure World software environment)
+        └── OP-TEE (open-source TEE OS)
+              ├── TEE Core (Secure EL1 OS: manages TA, memory, crypto API)
+              ├── Trusted Applications (TA):
+              │     EL0-S secure programs, one TA per function
+              │     e.g. fingerprint_ta.ta, keystore_ta.ta
+              └── TEE Supplicant:
+                    helper daemon running in Normal World
+                    lets TA access NW filesystem (TA cannot reach Linux fs directly)
 ```
+TrustZone 是硬體機制；TEE 是建立在上面的軟體執行環境標準；OP-TEE 是最常用的開源實作。
+
+**類比：**
+- TEE Core = Secure World 的「迷你 OS」（像 Linux kernel，但只有幾萬行）
+- Trusted Application (TA) = Secure World 的「應用程式」（像 Linux 的 user app）
+- Normal World app 透過 ioctl 呼叫 TA，就像呼叫 web service 的 API
 
 ---
 

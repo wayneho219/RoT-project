@@ -7,18 +7,19 @@ week: "9+"
 
 ## M33 TD 在 STM32MP215F 的地位
 
+上電後 boot 順序與 M33 TD 硬體特性：
 ```
-上電後的 boot 順序：
-  1. ROM Code（M33 執行）→ 從 NOR Flash 載入 M33 firmware
-  2. M33 Secure Firmware 執行（這是我們要寫的）
-  3. M33 hold A35 in reset
-  4. 驗證完成 → release A35
+Power-on boot sequence:
+  1. ROM Code (runs on M33) -> load M33 firmware from NOR Flash
+  2. M33 Secure Firmware executes (this is what we write)
+  3. M33 holds A35 in reset
+  4. Verification done -> release A35
 
-M33 TD（Trusted Domain）的硬體特性：
-  ├── 直接存取 BSEC/OTP（不需要 Secure Monitor）
-  ├── 控制 A35 reset 腳（透過 RCC）
-  ├── 擁有 Secure SRAM（A35 看不到）
-  └── 可設定 ETZPC（每個 peripheral 的安全屬性）
+M33 TD (Trusted Domain) hardware features:
+  ├── Direct BSEC/OTP access (no Secure Monitor needed)
+  ├── Controls A35 reset pin (via RCC)
+  ├── Owns Secure SRAM (invisible to A35)
+  └── Configures ETZPC (security attribute per peripheral)
 ```
 
 ---

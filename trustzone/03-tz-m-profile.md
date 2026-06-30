@@ -103,6 +103,9 @@ int32_t secure_verify_hash(const uint8_t *ns_data, uint32_t len,
     }
 
     // 把資料複製到 Secure SRAM 後再處理（防 TOCTOU）
+    // TOCTOU = Time of Check vs Time of Use 攻擊：
+    //   check 完指標合法後，NS 可能立刻改掉指標指向的資料（競爭條件）
+    //   解法：check 完立刻 memcpy 到 Secure SRAM，後續只操作 Secure 副本
     static uint8_t secure_buf[MAX_FW_SIZE];
     if (len > MAX_FW_SIZE) return -2;
     memcpy(secure_buf, ns_data, len);
