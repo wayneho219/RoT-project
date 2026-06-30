@@ -14,11 +14,10 @@ SoC: STM32MP215F
   └── 豐富周邊（USB、Ethernet、SPI、I2C、UART...）
 
 板載儲存：
-  ├── NOR Flash（SPI，存 firmware）
-  └── eMMC（存 Linux）
+  └── microSD slot（boot source，TF-A FIP + Linux image）
 
 板載 DRAM：
-  └── LPDDR4（512 MB 或 1 GB）
+  └── LPDDR4（2 GB）
 ```
 
 ## 閱讀順序

@@ -28,4 +28,4 @@ A35（後，被 M33 release）
 ## 與 RoT 的關係
 
 M33 側的驗證邏輯是整個 boot chain 的起點：沒有 M33 的簽章驗證，A35 就不啟動。  
-這樣的設計讓攻擊者即使能修改 NOR Flash 裡的 A35 firmware，也無法讓它執行。
+這樣的設計讓攻擊者即使能修改 microSD 裡的 A35 firmware，也無法讓它執行。

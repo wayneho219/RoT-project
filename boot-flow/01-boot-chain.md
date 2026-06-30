@@ -15,17 +15,22 @@ STM32MP215F-DK Boot Chain
 Power-on
   │
   ▼
-M33 ROM Code
-  │  └── boot source via OTP/BSEC
-  │  └── load M33 Secure Firmware (NOR Flash)
+A35 ROM Code (BootROM)
+  │  └── boot device (microSD / eMMC / USB)
+  │  └── load & verify TF-A BL2（fsbl1/fsbl2 partition）
   ▼
-M33 Secure Firmware
-  │  └── verify A35 fw (SHA-256 + ECDSA)
+TF-A BL2（early stage）
+  │  └── load M33 Secure Firmware into SYSRAM
+  │  └── start M33 via RCC
+  ▼
+M33 Secure Firmware                   ← runs in parallel with A35 boot
+  │  └── verify A35 fw (SHA-256 + ECDSA) from microSD
+  │  └── hold A35 in reset until verification done
   │  └── pass → release A35 reset
   │  └── fail → lockdown
   ▼
-A35 ROM Code (BootROM)                ← A35 reset released here
-  │  └── boot device (NOR Flash / eMMC / USB)
+A35 ROM Code (re-entry after M33 release)  ← A35 reset released here
+  │  └── boot device (microSD, STM32MP215F-DK 預設)
   │  └── load & verify TF-A BL2
   ▼
 TF-A BL2 (EL1-S, Secure)
@@ -55,24 +60,20 @@ User space
 
 ## 各階段詳解
 
-### M33 ROM Code
-
-- 存在晶片內部，無法修改（真正的 Root of Trust 起點）
-- 讀取 OTP/BSEC 中的設定（boot source、debug 鎖定狀態）
-- 從 NOR Flash 載入 M33 Secure Firmware
-
 ### M33 Secure Firmware（我們要實作的部分）
+
+M33 firmware 由 TF-A BL2 載入 SYSRAM 並啟動，不從外部 Flash 自行 boot。
 
 ```c
 // 大略邏輯
 int main(void) {
     // 1. 初始化硬體
     crypto_engine_init();
-    nor_flash_init();
+    sdmmc_init();          // microSD（SDMMC1）
 
-    // 2. 從 NOR Flash 讀取 A35 firmware header
+    // 2. 從 microSD 讀取 A35 firmware header（在 fip partition）
     FirmwareHeader hdr;
-    nor_read(A35_FW_HEADER_ADDR, &hdr, sizeof(hdr));
+    sdmmc_read(A35_FW_LBA, &hdr, sizeof(hdr));
 
     // 3. 驗證 magic 和 version
     if (hdr.magic != EXPECTED_MAGIC) goto fail;
@@ -131,13 +132,10 @@ booti ${kernel_addr_r} ${ramdisk_addr_r} ${fdt_addr_r}
 STM32MP2 透過 boot pins 決定從哪裡開機：
 
 ```
-BOOT0, BOOT1, BOOT2 引腳組合：
-  000 → Engineering Boot Mode（JTAG）
-  001 → NOR Flash（SPI）
-  010 → eMMC
-  011 → SD Card
-  100 → USB DFU（韌體燒錄模式）
-  ...
+STM32MP215F-DK 板上 4 個 boot pin 撥碼開關（BOOT[3:0]）：
+  預設 = SD card boot（STM32MP215F-DK 出廠設定）
+  其他模式（eMMC、QSPI NOR、USB DFU 等）透過撥碼開關切換
+  完整 BOOT pin 對應表見 RM0506 OTP11(BOOTROM_CONFIG_2) boot_source_disable 欄位
 ```
 
 OTP fuses 可以鎖定 boot source，防止攻擊者透過 SD 卡 bypass Secure Boot。

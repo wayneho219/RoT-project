@@ -198,7 +198,7 @@ Reset_Handler（startup.s）
       main()
         ├── 配置 SAU（劃分 Secure/NS 記憶體）
         ├── 配置 MPU（存取保護）
-        ├── 從 NOR Flash 讀取 A35 firmware header
+        ├── 從 microSD（SDMMC1）讀取 A35 firmware header
         ├── 計算 SHA-256
         ├── 驗證 ECDSA 簽章
         ├── 通過 → 寫 RCC 暫存器，release A35 reset
