@@ -20,3 +20,6 @@ __pycache__/
 
 # Yocto build 產物（太大，不 commit）
 yocto/build/
+
+# PDF 資料手冊
+*.pdf
