@@ -6,13 +6,13 @@
 ## 硬體
 - **開發板**：STM32MP215F-DK（~NT$2,603，Mouser）
 - **架構**：Cortex-A35（SoC）+ Cortex-M33 TD（RoT MCU）
-- **儲存**：NOR Flash（BL2/BL31/Linux image）
+- **儲存**：microSD（boot source，TF-A FIP + Linux image）
 
 ## 專案架構概念
 ```
 M33-TD（RoT）
  ├── 上電後先執行
- ├── 從 NOR Flash 讀取 A35 firmware
+ ├── 從 microSD 讀取 A35 firmware
  ├── 驗證 hash / 簽章
  ├── 通過 → release A35 reset
  └── 失敗 → A35 永遠不開機
