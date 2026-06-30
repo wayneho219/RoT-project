@@ -16,7 +16,7 @@ week: "5-6"
 選項：
   A. OTP Fuses（BSEC）→ 只能存少量資料（128–256 bytes）
   B. Secure SRAM（揮發性，斷電消失）
-  C. 加密後存入 NOR Flash（常見做法）
+  C. 加密後存入 microSD 的 Secure Storage partition（本專案做法）
   D. 外部安全晶片（TPM、SE）→ 最安全，但本專案先不用
 ```
 
@@ -44,51 +44,55 @@ int bsec_write(uint32_t otp_word_idx, uint32_t value) {
     return (BSEC->OTPSR & BSEC_ERROR) ? -1 : 0;
 }
 
-// 常用 OTP 佈局（自訂）
-#define OTP_ROTPKH_IDX       0   // Root of Trust Public Key Hash（4 words = 128 bits）
-#define OTP_FW_MIN_VER_IDX   4   // Firmware 最低版本（anti-rollback counter）
-#define OTP_BOOT_LOCK_IDX    5   // Boot source 鎖定 flags
+// 實際 OTP 位址（RM0506 Table 33-36）
+#define OTP_ROTPKH_WORD0     152  // OEM_KEY1_ROT0（OTP152-159，8 words = 256 bits）
+#define OTP_FW_MIN_VER_WORD  12   // BOOTROM_CONFIG_3 oem_fsbla_monotonic_counter
+#define OTP_SECURE_BOOT_WORD 18   // BOOTROM_CONFIG_9 bit[3:0]=secure_boot
 ```
 
 ---
 
-## 加密 Secure Storage（NOR Flash）
+## 加密 Secure Storage（microSD）
 
-Private Key 不能明文存在 Flash。設計：
+Private Key 不能明文存在儲存媒介。設計（板上無 microSD，使用 microSD）：
 
-NOR Flash 佈局（Secure Storage 位於 0x0080_0000，包含加密 Key Blob 與防重放計數器）：
+microSD GPT 分割佈局（Secure Storage 在獨立 partition，加密 Key Blob 存於此）：
 ```
-  ┌──────────────────────────────────────┐
-  │ M33 Secure Firmware (executable)     │ 0x0000_0000
-  ├──────────────────────────────────────┤
-  │ A35 Firmware (pending verification)  │ 0x0010_0000
-  ├──────────────────────────────────────┤
-  │ Secure Storage                       │ 0x0080_0000
-  │  ├── AES-256 Key Blob                │
-  │  │    └── AES-GCM encrypted data     │
-  │  ├── ECDSA Private Key Blob          │
-  │  │    └── encrypted with HUK         │
-  │  └── Replay Protection Block         │
-  │       └── counter (anti-replay)      │
-  └──────────────────────────────────────┘
+  ┌──────────────────────────────────────────┐
+  │ fsbl1 / fsbl2  BL2 (TF-A)               │ GPT partition
+  ├──────────────────────────────────────────┤
+  │ fip            BL31 + OP-TEE + U-Boot    │ GPT partition
+  ├──────────────────────────────────────────┤
+  │ bootfs         FAT32 (kernel + DTB)      │ GPT partition
+  ├──────────────────────────────────────────┤
+  │ rootfs         ext4 (Linux root)         │ GPT partition
+  ├──────────────────────────────────────────┤
+  │ secure_store   (optional) Secure Storage │ GPT partition
+  │  ├── AES-256 Key Blob (encrypted)        │
+  │  ├── ECDSA Private Key Blob              │
+  │  └── Replay Protection Block             │
+  └──────────────────────────────────────────┘
 ```
 
 ### HUK（Hardware Unique Key）
 
-**HUK 是什麼：** 每顆晶片出廠時，ST 在工廠把一個隨機的 128-bit 金鑰燒進 OTP，這個金鑰每顆晶片都不一樣，稱為 HUK（Hardware Unique Key）。HUK 只能在 Secure World 讀取，Normal World 讀不到。
+**HUK 是什麼：** STM32MP21xx 的 HWKEY（Hardware Unique Key）儲存在 OTP376-383，共 8 × 32bit = 256 bits，每顆晶片唯一，出廠時由 ST 燒錄。
 
-HUK 不直接用來加密，而是用來「衍生」其他金鑰：
+> [!warning] HWKEY 不可讀取
+> HWKEY（OTP376-383）標記為 **No Access**：CPU 完全無法讀取，HAL API 也不例外。
+> HWKEY 透過內部 hardware wire 直接連接到 SAES 加速器，只有 SAES 可以使用。
+> 因此 `bsec_get_huk()` 這種「讀取 HUK 再做 HKDF」的模式在 STM32MP21 **不可行**。
 
-HUK 存於 OTP，只有 Secure World 可讀；衍生出的 Storage Key 用於加密 Private Key，密文存入 NOR Flash：
+STM32MP21 正確的 HUK 使用方式：
 ```
-HUK (OTP, Secure World only, never exposed)
-  └── HKDF (key derivation, label="storage") --> Storage Key (128/256 bits)
+HWKEY (OTP376-383, No Access, only SAES can use via HW wire)
+  └── SAES (CRYP_KEYSEL_HW) --> 直接用 HWKEY 加密，key 值從不進入 CPU
         └── AES-256-GCM encrypt --> Private Key ciphertext
-              └── ciphertext stored in NOR Flash
+              └── ciphertext stored in microSD secure_store partition
 ```
-HKDF（HMAC-based Key Derivation Function）：用 HUK + label 衍生出用途明確的金鑰，不同用途使用不同衍生金鑰，HUK 本身永遠不直接使用。
+用 SAES + `CRYP_KEYSEL_HW` 模式，Private Key 在加密過程中不暴露給軟體。
 
-即使攻擊者讀取了整個 NOR Flash，沒有 HUK 也無法解密 Private Key。
+即使攻擊者讀取了整個 microSD，沒有 HWKEY（焊在晶片內）也無法解密 Private Key。
 
 ---
 
@@ -116,9 +120,9 @@ int secure_key_store(const uint8_t *key, uint32_t key_len,
     // 產生隨機 nonce（用硬體 RNG）
     rng_get_bytes(out->nonce, 12);
     
-    // 用 HUK 衍生 Storage Key
-    uint8_t storage_key[32];
-    hkdf_sha256(bsec_get_huk(), 16, "storage", 7, storage_key, 32);
+    // 用 SAES + HWKEY 加密（HUK 不可讀，改用 CRYP_KEYSEL_HW）
+    // storage_key 概念保留，實作改用 SAES hardware key 模式
+    // 參見 stm32mp2/02-bsec-otp.md HUK 章節
     
     // AES-256-GCM 加密
     out->ciphertext_len = key_len;
@@ -137,7 +141,7 @@ int secure_key_store(const uint8_t *key, uint32_t key_len,
 
 ## Replay Protection（防重放攻擊）
 
-攻擊者可能把 NOR Flash 的內容換成舊版本（舊 key）：
+攻擊者可能把 microSD 的內容換成舊版本（舊 key）：
 
 ```
 攻擊：
@@ -161,9 +165,7 @@ int secure_key_load(const SecureKeyBlob *blob, uint8_t *key_out) {
     uint32_t expected_ver = bsec_read(OTP_STORAGE_VER_IDX);
     if (blob->version != expected_ver) return -2;
     
-    // 3. 衍生 storage key
-    uint8_t storage_key[32];
-    hkdf_sha256(bsec_get_huk(), 16, "storage", 7, storage_key, 32);
+    // 3. SAES + HWKEY 解密（HUK No Access，改用 hardware key mode）
     
     // 4. AES-GCM 解密（同時驗證 tag）
     int ret = aes_gcm_decrypt(storage_key, blob->nonce, 12,
@@ -188,11 +190,11 @@ Provisioning (factory)
   │  1. generate ECDSA key pair (inside HSM)
   │  2. burn HUK to OTP (done at chip factory)
   │  3. burn ROTPKH (Public Key Hash) to OTP
-  │  4. encrypt Private Key with HUK, store in NOR Flash
+  │  4. encrypt Private Key with HUK, store in microSD
   ▼
 
 Runtime (device operation)
-  │  1. M33 reads encrypted key blob from NOR Flash
+  │  1. M33 reads encrypted key blob from microSD
   │  2. decrypt with HUK (key stays in Secure SRAM, never sent to A35)
   │  3. verify firmware signature with ECDSA private key
   │  4. wipe Secure SRAM after use
@@ -202,7 +204,7 @@ Key Rotation
   │  1. generate new key pair
   │  2. increment OTP rollback counter
   │  3. encrypt new key with HUK + new counter
-  │  4. update NOR Flash
+  │  4. update microSD
 ```
 
 ---

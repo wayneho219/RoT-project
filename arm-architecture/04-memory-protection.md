@@ -55,7 +55,7 @@ Linux 在 A35 上執行時，每個 process 都有自己的虛擬位址空間：
 實體記憶體（STM32MP215F-DK）
   0x8000_0000 – 0xBFFF_FFFF  → DDR（1 GB，Linux 用）
   0x0E00_0000 – 0x0EFF_FFFF  → Secure SRAM（M33 用，A35 看不到）
-  0x6000_0000 – 0x61FF_FFFF  → NOR Flash（記憶體映射讀取）
+  0x6000_0000 – 0x61FF_FFFF  → FMC 外部記憶體空間（板上未接 NOR Flash）
 ```
 
 ### 頁表（Page Table）

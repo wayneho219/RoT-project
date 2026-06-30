@@ -17,7 +17,7 @@ TZASC (TrustZone Address Space Controller)   <-- gatekeeper between CPU & DDR
   └── every DDR access passes through TZASC
       NS requests to Secure DDR regions are blocked
 
-TZMA (TrustZone Memory Adapter) / ETZPC      <-- protects SRAM & peripherals
+RIFSC (Resource Isolation Framework SC)      <-- protects SRAM & peripherals
   └── each peripheral can be set Secure-only or accessible by both Worlds
       (UART, SPI, RNG ...)
 
@@ -145,19 +145,20 @@ GICD->IGROUPR[1] |= (1 << USART2_IRQn); // Group 1 = Non-Secure
 
 ---
 
-## TZMA：Peripheral 安全屬性
+## RIFSC：Peripheral 安全屬性
 
-STM32MP2 的每個 peripheral 可以被標記為 Secure 或 Non-Secure：
+STM32MP21 的每個 peripheral 可以被標記為 Secure 或 Non-Secure（RIFSC 取代舊版 STM32MP1 的 ETZPC）：
 
 ```c
-// ETZPC（Extended TrustZone Protection Controller）
-// STM32MP 特有，控制 peripheral 的 Secure/NS 屬性
+// RIFSC（Resource Isolation Framework Security Controller）
+// STM32MP21 使用 RIFSC 取代舊版 STM32MP1 的 ETZPC
+// Base: 0x42080000（NS）/ 0x52080000（S）
 
-// 讓 RNG（Random Number Generator）只有 Secure World 能用
-ETZPC->DECPROT[0] |= DECPROT_SECURE(RNG_IDX);
+// 讓 RNG 只有 Secure World 能用（HAL 概念，實際 API 見 STM32CubeMP2）
+HAL_RIFSC_SetPeriphAttributes(RIFSC_RNG_ID, RIFSC_PRIV_SECURE);
 
-// 讓 UART 給 Normal World
-ETZPC->DECPROT[1] |= DECPROT_NS(USART2_IDX);
+// 讓 USART2 給 Normal World（A35 Linux 使用）
+HAL_RIFSC_SetPeriphAttributes(RIFSC_USART2_ID, RIFSC_PRIV_NONSECURE);
 ```
 
 ---

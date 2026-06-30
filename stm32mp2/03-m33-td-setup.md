@@ -10,16 +10,17 @@ week: "9+"
 上電後 boot 順序與 M33 TD 硬體特性：
 ```
 Power-on boot sequence:
-  1. ROM Code (runs on M33) -> load M33 firmware from NOR Flash
-  2. M33 Secure Firmware executes (this is what we write)
-  3. M33 holds A35 in reset
-  4. Verification done -> release A35
+  1. ROM Code (runs on A35) -> load BL2 (TF-A) from microSD（SDMMC1）
+  2. BL2 loads M33 firmware into SYSRAM, then starts M33
+  3. M33 Secure Firmware executes (this is what we write)
+  4. M33 holds A35 in reset（直到驗證完成）
+  5. Verification done -> release A35, A35 continues (BL31 -> Linux)
 
 M33 TD (Trusted Domain) hardware features:
   ├── Direct BSEC/OTP access (no Secure Monitor needed)
   ├── Controls A35 reset pin (via RCC)
   ├── Owns Secure SRAM (invisible to A35)
-  └── Configures ETZPC (security attribute per peripheral)
+  └── Configures RIFSC (security attribute per peripheral)
 ```
 
 ---
@@ -188,24 +189,27 @@ void ipc_init(void) {
 
 ---
 
-## ETZPC 初始化
+## RIFSC 初始化
+
+STM32MP21 用 **RIFSC**（Resource Isolation Framework Security Controller）取代舊版 MP1 的 ETZPC。
+RIFSC base：0x42080000（NS）/ 0x52080000（S）。
 
 ```c
-// 設定各 peripheral 的安全屬性
-void etzpc_init(void) {
-    ETZPC_HandleTypeDef hetzpc;
-    hetzpc.Instance = ETZPC;
-    HAL_ETZPC_Init(&hetzpc);
+// 設定各 peripheral 的安全屬性（概念骨架，實際 API 見 STM32CubeMP2 HAL）
+void rifsc_init(void) {
+    // RIFSC 透過 RISC registers（RISUP）設定 peripheral 存取屬性
+    // STM32CubeMP2 HAL 提供 HAL_RIFSC_* 系列函式
 
-    // Secure-only：加密加速器
-    HAL_ETZPC_Set_SAES_PeriphProtection(&hetzpc, ETZPC_PERIPH_PROTECTION_READ_WRITE_SECURE);
-    HAL_ETZPC_Set_PKA_PeriphProtection(&hetzpc,  ETZPC_PERIPH_PROTECTION_READ_WRITE_SECURE);
-    HAL_ETZPC_Set_RNG_PeriphProtection(&hetzpc,  ETZPC_PERIPH_PROTECTION_READ_WRITE_SECURE);
-    HAL_ETZPC_Set_BSEC_PeriphProtection(&hetzpc, ETZPC_PERIPH_PROTECTION_READ_WRITE_SECURE);
+    // Secure-only：加密加速器（SAES, PKA, RNG, BSEC）
+    // -> M33 Secure domain 獨佔，A35 NS 無法存取
+    HAL_RIFSC_SetPeriphAttributes(RIFSC_SAES_ID,  RIFSC_PRIV_SECURE);
+    HAL_RIFSC_SetPeriphAttributes(RIFSC_PKA_ID,   RIFSC_PRIV_SECURE);
+    HAL_RIFSC_SetPeriphAttributes(RIFSC_RNG_ID,   RIFSC_PRIV_SECURE);
+    HAL_RIFSC_SetPeriphAttributes(RIFSC_BSEC_ID,  RIFSC_PRIV_SECURE);
 
     // Non-Secure：A35 可用的 peripheral
-    HAL_ETZPC_Set_USART2_PeriphProtection(&hetzpc, ETZPC_PERIPH_PROTECTION_READ_WRITE_NONSECURE);
-    HAL_ETZPC_Set_I2C1_PeriphProtection(&hetzpc,   ETZPC_PERIPH_PROTECTION_READ_WRITE_NONSECURE);
+    HAL_RIFSC_SetPeriphAttributes(RIFSC_USART2_ID, RIFSC_PRIV_NONSECURE);
+    HAL_RIFSC_SetPeriphAttributes(RIFSC_I2C1_ID,   RIFSC_PRIV_NONSECURE);
 }
 ```
 
@@ -218,7 +222,7 @@ int main(void) {
     // 1. 硬體初始化
     SystemInit();       // 時鐘
     sau_init();         // TrustZone 記憶體隔離
-    etzpc_init();       // Peripheral 安全屬性
+    rifsc_init();       // Peripheral 安全屬性（RIFSC 取代舊版 ETZPC）
     mpu_init();         // 記憶體保護
     ipc_init();         // 共享記憶體初始化
 
@@ -230,8 +234,8 @@ int main(void) {
     HAL_HASH_Init(&hhash);
     HAL_PKA_Init(&hpka);
 
-    // 4. 從 BSEC 讀取安全設定
-    uint8_t rotpkh[16];
+    // 4. 從 BSEC 讀取安全設定（ROTPKH = OEM_KEY1_ROT0-7，32 bytes = 256 bits）
+    uint8_t rotpkh[32];
     bsec_read_rotpkh(rotpkh);
 
     // 5. 讀取並驗證 A35 firmware

@@ -66,7 +66,7 @@ rng_get_bytes(nonce, 12);
 // 風險：如果 RNG 有問題，可能重複
 
 // 策略 2：計數器（推薦嵌入式）
-// 每次加密遞增計數器，存在 NOR Flash（或 OTP）
+// 每次加密遞增計數器，存在 microSD secure_store partition（或 OTP）
 uint64_t counter = persistent_counter_read();
 memcpy(nonce, &counter, 8);       // 前 8 bytes = counter
 memset(nonce + 8, 0, 4);          // 後 4 bytes = 0

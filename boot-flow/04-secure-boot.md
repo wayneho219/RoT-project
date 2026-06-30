@@ -8,7 +8,7 @@ week: "5-6"
 ## Secure Boot 的核心問題
 
 ```
-問題：攻擊者如果修改了 NOR Flash 裡的 firmware，怎麼阻止它執行？
+問題：攻擊者如果修改了 microSD 裡的 firmware，怎麼阻止它執行？
 
 解法：數位簽章 + 不可變的信任根（Root of Trust）
 
@@ -183,11 +183,18 @@ python3 tools/pack_firmware.py \
 ## Secure Boot 鎖定選項（OTP Fuses）
 
 ```
-STM32MP2 相關 OTP 配置：
-  SECURE_BOOT_EN  = 1   → 啟用 Secure Boot（燒錄後不可停用）
-  JTAG_DISABLE    = 1   → 關閉 JTAG debug 介面（量產必要）
-  BOOT_SRC_LOCK   = 1   → 鎖定 boot source（防 SD 卡 bypass）
-  ROTPKH[0..3]         → Root of Trust Public Key Hash（128 bits）
+STM32MP21xx 相關 OTP 配置（RM0506 Table 33-36）：
+
+  OTP18 (BOOTROM_CONFIG_9)
+    bit[3:0]  = secure_boot  → [1-15] = CLOSED_LOCKED（啟用 Secure Boot）
+    bit[11:8] = debug_lock   → [1-15] = 鎖住 JTAG/debug
+
+  OTP152-159 (OEM_KEY1_ROT0-7)
+    → Root of Trust Public Key Hash（256 bits = 8 words）
+    → SHA-256(OEM Public Key) 燒入此處
+
+  OTP12 (BOOTROM_CONFIG_3)
+    bit[31:0] = oem_fsbla_monotonic_counter → OEM FSBL 防回滾計數器
 ```
 
 ---

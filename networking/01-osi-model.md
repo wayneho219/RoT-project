@@ -178,7 +178,7 @@ OTA 更新、遠端驗證、裝置管理的通訊示意：
 ```
 [OTA Update]
   Device ─── HTTPS ──▶ OTA Server
-  download firmware → M33 verify signature → write NOR Flash
+  download firmware → M33 verify signature → write microSD
 
 [Remote Attestation]
   Device ─── TLS + MQTT ──▶ Attestation Service

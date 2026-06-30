@@ -10,7 +10,7 @@ week: "9+"
 專案目標：
 ```
 Goal:
-  M33-TD verifies A35 firmware in NOR Flash (SHA-256 + ECDSA) on power-on
+  M33-TD verifies A35 firmware from microSD (SHA-256 + ECDSA) on power-on
   Pass -> release A35 reset
   Fail -> A35 never starts (prevents tampered firmware from running)
 ```
@@ -24,12 +24,13 @@ Goal:
 
 #include "rot_verify.h"
 #include "bsec.h"
-#include "nor_flash.h"
+#include "sdmmc.h"        // microSD（SDMMC1）讀取
 #include "hal_hash.h"
 #include "hal_pka.h"
 #include "memcmp_ct.h"
 
-#define NOR_A35_FW_ADDR  0x00040000UL  // NOR Flash offset
+#define SD_FW_PARTITION   "fip"        // GPT partition name（或用 sector offset）
+#define SD_FW_LBA_OFFSET  0x1000UL     // FIP partition 起始 LBA（示意，實際看 GPT）
 
 typedef struct __attribute__((packed)) {
     uint8_t  magic[4];      // "ROTF"
@@ -41,18 +42,18 @@ typedef struct __attribute__((packed)) {
     uint32_t crc32;         // header 本身的 CRC32（防意外損毀）
 } FirmwareHeader;
 
-int verify_a35_firmware(const uint8_t rotpkh[16]) {
+int verify_a35_firmware(const uint8_t rotpkh[32]) {  // ROTPKH = 256 bits = 32 bytes
     FirmwareHeader hdr;
     int ret;
 
-    // ── Step 1: 讀取 firmware header ────────────────────
-    ret = nor_read(NOR_A35_FW_ADDR, (uint8_t *)&hdr, sizeof(hdr));
+    // ── Step 1: 從 microSD 讀取 firmware header ─────────
+    ret = sdmmc_read(SD_FW_LBA_OFFSET, (uint8_t *)&hdr, sizeof(hdr));
     if (ret != 0) return ROT_ERR_FLASH_READ;
 
     // ── Step 2: 驗證 magic ───────────────────────────────
     if (memcmp(hdr.magic, "ROTF", 4) != 0) return ROT_ERR_BAD_MAGIC;
 
-    // ── Step 3: Header CRC32 校驗（防 NOR 靜默錯誤）──────
+    // ── Step 3: Header CRC32 校驗（防 SD 靜默錯誤）────────
     uint32_t computed_crc = crc32_compute((uint8_t *)&hdr,
                                            sizeof(hdr) - sizeof(uint32_t));
     if (computed_crc != hdr.crc32) return ROT_ERR_HEADER_CRC;
@@ -62,17 +63,17 @@ int verify_a35_firmware(const uint8_t rotpkh[16]) {
     if (hdr.version < min_ver) return ROT_ERR_ROLLBACK;
 
     // ── Step 5: 驗證 Public Key 和 OTP 的 ROTPKH ────────
-    uint8_t pk_hash[16];
-    // 注意：本專案用前 128 bits（ROTPKH 是 SHA-256 的前半）
-    sha256_partial(hdr.pubkey, 65, pk_hash, 16);
-    if (memcmp_ct(pk_hash, rotpkh, 16) != 0) return ROT_ERR_BAD_PUBKEY;
+    uint8_t pk_hash[32];
+    // ROTPKH = SHA-256(pubkey)，完整 256 bits（OEM_KEY1_ROT0-7，OTP152-159）
+    sha256_compute(hdr.pubkey, 65, pk_hash);
+    if (memcmp_ct(pk_hash, rotpkh, 32) != 0) return ROT_ERR_BAD_PUBKEY;
 
     // ── Step 6: 計算 firmware body 的 SHA-256 ──────────
     // firmware body 緊接在 header 後面
-    uint32_t body_addr = NOR_A35_FW_ADDR + sizeof(FirmwareHeader);
+    uint32_t body_lba = SD_FW_LBA_OFFSET + (sizeof(FirmwareHeader) / 512);
     uint8_t  computed_hash[32];
-    
-    ret = hardware_sha256_nor(body_addr, hdr.image_size, computed_hash);
+
+    ret = hardware_sha256_sd(body_lba, hdr.image_size, computed_hash);
     if (ret != 0) return ROT_ERR_HASH_FAIL;
 
     // ── Step 7: 比較 hash（constant-time）──────────────
@@ -91,26 +92,26 @@ int verify_a35_firmware(const uint8_t rotpkh[16]) {
 
 ---
 
-## 硬體 SHA-256（邊讀 NOR Flash 邊計算）
+## 硬體 SHA-256（邊讀 microSD 邊計算）
 
 ```c
 // 不把整個 firmware 載入 RAM（M33 SRAM 有限），邊讀邊 hash
-int hardware_sha256_nor(uint32_t nor_offset, uint32_t size, uint8_t out[32]) {
+int hardware_sha256_sd(uint32_t lba_offset, uint32_t size, uint8_t out[32]) {
     HASH_HandleTypeDef hhash = {0};
     hhash.Instance = HASH;
     hhash.Init.DataType = HASH_DATATYPE_8B;
     hhash.Init.Algorithm = HASH_ALGOSELECTION_SHA256;
     HAL_HASH_Init(&hhash);
 
-    #define CHUNK_SIZE 256  // 每次讀 256 bytes
+    #define CHUNK_SIZE 512  // SD card sector 大小
     uint8_t chunk[CHUNK_SIZE];
-    
+
     uint32_t remaining = size;
-    uint32_t offset = nor_offset;
-    
+    uint32_t lba = lba_offset;
+
     while (remaining > 0) {
         uint32_t to_read = MIN(remaining, CHUNK_SIZE);
-        nor_read(offset, chunk, to_read);
+        sdmmc_read(lba, chunk, to_read);
         
         if (remaining == to_read) {
             // 最後一塊：用 HASH_LAST flag 觸發最終計算
@@ -120,7 +121,7 @@ int hardware_sha256_nor(uint32_t nor_offset, uint32_t size, uint8_t out[32]) {
         }
         
         remaining -= to_read;
-        offset    += to_read;
+        lba       += 1;  // 下一個 sector
     }
     
     HAL_HASH_GetDigest(&hhash, out, HAL_MAX_DELAY);
@@ -240,7 +241,7 @@ add_executable(rot_m33.elf
     src/main.c
     src/rot_verify.c
     src/bsec.c
-    src/nor_flash.c
+    src/sdmmc.c           # microSD 讀取（SDMMC1）
     src/sau_init.c
     third_party/mbedtls/library/sha256.c
     third_party/mbedtls/library/ecdsa.c

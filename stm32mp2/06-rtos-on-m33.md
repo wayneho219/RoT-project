@@ -121,14 +121,14 @@ void vRoT_IPC_Task(void *pvParameters) {
 ### Mutex（互斥存取）
 
 ```c
-// 保護 NOR Flash 存取（讀 firmware 和讀 secure storage 不能同時）
-MutexHandle_t xNorFlash_Mutex;
-xNorFlash_Mutex = xSemaphoreCreateMutex();
+// 保護 microSD 存取（讀 firmware 和讀 secure storage 不能同時）
+MutexHandle_t xSD_Mutex;
+xSD_Mutex = xSemaphoreCreateMutex();
 
 void rot_read_secure_storage(void) {
-    if (xSemaphoreTake(xNorFlash_Mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-        // 安全存取 NOR Flash
-        nor_read(...);
+    if (xSemaphoreTake(xSD_Mutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
+        // 安全存取 microSD（SDMMC1）
+        sdmmc_read(...);
         xSemaphoreGive(xNorFlash_Mutex);
     } else {
         // timeout，處理錯誤

@@ -90,7 +90,6 @@ STM32MP215F (ARMv8)
 │     └── RCC control (A35 reset)
 │
 ├── Shared Resources
-│     ├── NOR Flash (SPI)
 │     ├── DDR (LPDDR4, primary A35, M33 accesses NS region)
 │     ├── RCC (Reset and Clock Controller)
 │     └── GIC (Generic Interrupt Controller)
@@ -108,21 +107,27 @@ STM32MP215F (ARMv8)
 
 ## 記憶體映射
 
+STM32MP21 的 peripheral 有兩組別名地址：
+- `0x4xxx_xxxx`：非安全別名（A35 NS 或 M33 非安全存取）
+- `0x5xxx_xxxx`：安全別名（M33 Secure 存取用，地址差 0x1000_0000）
+
 ```
-Address Range          Size    Region  Description
+Address Range          Bus      Description
 ─────────────────────────────────────────────────────────────────
-0x0000_0000            -       ROM     Boot ROM (read-only)
-0x0E00_0000  256 KB    SRAM    M33 Secure SRAM (SAU protected)
-0x2000_0000  256 KB    SRAM    NS SRAM (M33/A35 shared IPC)
-0x4000_0000            APB1    Peripheral (UART, I2C, SPI...)
-0x4400_0000            APB2
-0x4800_0000            AHB1    GPIO
-0x5000_0000            AHB2    Crypto accelerators (PKA, HASH, RNG)
-0x5800_0000            AHB3    BSEC, RCC
-0x6000_0000            FMC     Flexible Memory (NOR Flash)
-0x8000_0000  1 GB      DDR     LPDDR4 (Non-Secure, Linux)
-0xFE00_0000  32 MB     DDR     Secure DDR (OP-TEE, TZASC protected)
-0xE000_0000            PPB     Cortex-M33 system regs (NVIC, MPU, SAU)
+0x0000_0000            ROM      Boot ROM（僅 A35 可見）
+0x0A00_0000            SRAM     SYSRAM + RETRAM + SRAM1（非安全別名）
+0x0E00_0000            SRAM     SYSRAM + RETRAM + SRAM1（安全別名）
+                                 SYSRAM 256 KB / RETRAM 128 KB / SRAM1 64 KB
+0x4000_0000            APB1     TIM2, UART, SPI, I2C...
+0x4020_0000            APB2     TIM1, USART1, SPI1...
+0x4040_0000            AHB2     HPDMA, Cache, ADC, OCTOSPI
+0x4200_0000            AHB3     HASH, RNG, SAES, PKA, CRYP, RIFSC
+0x4400_0000            APB3     BSEC（0x4400_0000）
+0x4420_0000            AHB4     RCC（0x4420_0000）, GPIOA（0x4424_0000）...
+0x5000_0000            -        （同 0x4xxx，Secure alias，位址差 0x1000_0000）
+0x6000_0000            FMC      External memory space（板上未接 NOR Flash）
+0x8000_0000  2 GB      DDR      LPDDR4（Linux / A35 用）
+0xE000_0000            PPB      Cortex-M33 system regs（NVIC, MPU, SAU）
 ```
 
 ### 從 C 存取暫存器
@@ -145,90 +150,50 @@ BSEC->OTP_DATA[0];   // 讀取 OTP word 0
 M33 控制 A35 的 reset，透過 RCC 暫存器：
 
 ```c
-// 相關暫存器
-#define RCC_BASE        0x58000000
-#define RCC_MP_A35_RST  (RCC_BASE + 0x188)  // A35 reset 控制
+// RCC base address（來自 RM0506 Table 9）
+#define RCC_BASE_NS     0x44200000   // 非安全別名
+#define RCC_BASE_S      0x54200000   // 安全別名（M33 Secure 用）
 
-// A35 進入 Reset（在 M33 驗證完成前保持）
-*((volatile uint32_t *)RCC_MP_A35_RST) = 0x1;   // assert reset
-
-// 驗證通過後釋放 A35 Reset
-*((volatile uint32_t *)RCC_MP_A35_RST) = 0x0;   // release reset
-
-// 使用 HAL
-__HAL_RCC_A35_FORCE_RESET();     // assert
-__HAL_RCC_A35_RELEASE_RESET();   // release
+// 具體暫存器 offset 和名稱需從 STM32CubeMP2 header 確認
+// 使用 HAL（推薦）
+__HAL_RCC_A35_FORCE_RESET();     // assert A35 reset
+__HAL_RCC_A35_RELEASE_RESET();   // release A35 reset
 ```
 
 ---
 
-## NOR Flash（QSPI）
+## 開機儲存媒介（microSD）
 
-A35 firmware 和 M33 firmware 存在 NOR Flash，透過 SPI/QSPI 存取：
+STM32MP215F-DK 沒有板載 NOR Flash，boot source 是 **microSD**。
+Boot pin switches 選擇開機來源（預設 SD card）。
+
+microSD 使用 GPT 分割表，STM32MP2 官方 Yocto 的標準分割佈局：
+
+```
+microSD（GPT 分割）
+  ├── fsbl1   （TF-A BL2，~256 KB）    First Stage Boot Loader，ROM 載入
+  ├── fsbl2   （TF-A BL2 備份）         冗餘備份，啟動失敗時切換
+  ├── fip     （FIP image，~4 MB）      BL31 + OP-TEE + U-Boot 打包
+  ├── bootfs  （FAT32，~64 MB）         kernel Image + DTB
+  └── rootfs  （ext4，剩餘空間）         Linux root filesystem
+```
+
+ROM Boot Loader（晶片內建，不可改）讀取 fsbl1/fsbl2 → 跳到 BL2 → 載入 FIP。
+
+---
+
+## RIFSC（Resource Isolation Framework Security Controller）
+
+STM32MP21 用 RIFSC 取代舊版 STM32MP1 的 ETZPC，控制每個 peripheral 的安全屬性：
 
 ```c
-// NOR Flash 規格（STM32MP215F-DK 板載）
-// 型號：MX25L256（32 MB，SPI/QSPI，從 0x6000_0000 映射）
+// RIFSC base address（來自 RM0506 Table 9，Chapter 8）
+#define RIFSC_BASE_NS  0x42080000   // 非安全別名
+#define RIFSC_BASE_S   0x52080000   // 安全別名
 
-// 直接讀（memory-mapped mode）
-#define QSPI_BASE  0x60000000
-const uint8_t *nor = (const uint8_t *)QSPI_BASE;
-uint8_t byte = nor[0x100000];  // 讀取 offset 0x10_0000
-
-// 寫入（需要用 QSPI 指令）
-void nor_write_page(uint32_t addr, const uint8_t *data, uint32_t len) {
-    // 1. Write Enable（WE）指令
-    qspi_send_cmd(NOR_CMD_WEN);
-    // 2. Page Program 指令（addr + data）
-    qspi_send_cmd_with_addr(NOR_CMD_PP, addr, data, len);
-    // 3. 等待 WIP bit 清除
-    while (nor_read_status() & NOR_SR_WIP);
-}
-
-// Erase Sector（4 KB）
-void nor_erase_sector(uint32_t addr) {
-    qspi_send_cmd(NOR_CMD_WEN);
-    qspi_send_cmd_with_addr(NOR_CMD_SE, addr, NULL, 0);
-    while (nor_read_status() & NOR_SR_WIP);
-}
-```
-
----
-
-## Flash 佈局規劃
-
-```
-NOR Flash 32 MB  (0x0000_0000 - 0x01FF_FFFF)
-  ├── 0x0000_0000 - 0x0001_FFFF  M33 Secure Firmware    (128 KB)
-  ├── 0x0002_0000 - 0x0002_FFFF  Secure Storage          (64 KB)
-  │                                (AES-encrypted private key blob)
-  ├── 0x0003_0000 - 0x0003_FFFF  Rollback Counter Area   (64 KB)
-  ├── 0x0004_0000 - 0x00FF_FFFF  A35 Firmware (TF-A FIP)
-  │                                (signed, pending M33 verification)
-  └── 0x0100_0000 - 0x01FF_FFFF  Reserved (future use)
-```
-
----
-
-## ETZPC（Extended TrustZone Protection Controller）
-
-控制每個 peripheral 屬於哪個安全域：
-
-```c
-// ETZPC 設定
-#define ETZPC_BASE  0x5C007000
-
-typedef enum {
-    ETZPC_SECURE   = 0,   // 只有 Secure 可存取
-    ETZPC_PRIV_NS  = 1,   // Privileged Non-Secure 可存取
-    ETZPC_NS       = 3,   // 任何 Non-Secure 可存取
-} ETZPC_Attr;
-
-// 設定 RNG 為 Secure only
-etzpc_set_periph_attr(ETZPC_PERIPH_RNG, ETZPC_SECURE);
-
-// 設定 UART 為 Non-Secure
-etzpc_set_periph_attr(ETZPC_PERIPH_USART2, ETZPC_NS);
+// 安全屬性設定（概念，實際 API 見 STM32CubeMP2 HAL）
+// 設定 peripheral 為 Secure only → M33 獨佔
+// 設定 peripheral 為 Non-Secure → A35 可存取
 ```
 
 ---

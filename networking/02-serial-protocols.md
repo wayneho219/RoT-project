@@ -221,7 +221,7 @@ HAL_I2C_Mem_Read(&hi2c1, LM75_ADDR, 0x00, I2C_MEMADD_SIZE_8BIT,
 ### STM32MP215F 應用
 
 ```
-SPI1 → NOR Flash（QSPI，存 firmware）
+SDMMC1 → microSD（boot source，存 firmware）
 I2C1 → PMIC（電源管理 IC，控制 OTP 燒錄電壓）
 USART2 → Debug console（Linux 的 /dev/ttySTM0）
 USART3 → M33 和外部設備通訊（可選）

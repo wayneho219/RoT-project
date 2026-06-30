@@ -216,7 +216,7 @@ mosquitto_sub \
    - 通知 M33（透過 IPC）準備更新
 
 8. M33 驗證新 firmware 的 ECDSA 簽章
-   - 通過 → 寫入 NOR Flash
+   - 通過 → 寫入 microSD（fip partition）
    - 失敗 → 拒絕，保持原版本
 
 9. M33 更新 OTP anti-rollback counter（不可逆）
