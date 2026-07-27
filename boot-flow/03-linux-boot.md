@@ -24,7 +24,7 @@ start_kernel()
   │  ├── 初始化中斷子系統
   │  └── rest_init()
         │
-        └── kernel_init（PID 1 前身）
+        └── kernel_init（PID，Process ID，行程識別碼 1 前身）
               ├── 掛載 initramfs（initrd）
               └── 執行 /init 或 /sbin/init
                     └── systemd（正式 PID 1）
@@ -74,6 +74,8 @@ Linux 用 Device Tree 描述硬體拓撲，而非把硬體資訊 hard-code 進 k
         usart2: serial@40c00000 {
             compatible = "st,stm32h7-uart";
             reg = <0x40c00000 0x400>;
+            // GIC_SPI：GIC 的 SPI（Shared Peripheral Interrupt，共享周邊中斷）
+            // 注意：這裡的 SPI 跟 networking/ 提到的 SPI（Serial Peripheral Interface）是同縮寫、不同意思
             interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
             clocks = <&rcc USART2>;
             status = "okay";
@@ -93,6 +95,38 @@ Linux 用 Device Tree 描述硬體拓撲，而非把硬體資訊 hard-code 進 k
 booti ${kernel_addr_r} - ${fdt_addr_r}
 # → 跳到 kernel，X1 = fdt_addr_r
 ```
+
+### STM32MP215F-DK 的 .dts 實際在哪
+
+**Yocto build 裡（實際被編譯進 image 的版本）：**
+
+```
+kernel source（linux-stm32mp recipe 抓下來的 ST kernel fork）
+  arch/arm64/boot/dts/st/
+    ├── stm32mp215.dtsi           ← SoC 層（暫存器、周邊，所有 stm32mp215 共用）
+    ├── stm32mp215f-dk.dts        ← 板子層（哪些周邊有接、接在哪個 pin）
+    └── stm32mp215f-dk-resmem.dtsi ← 保留記憶體區（給 M33 共享記憶體用）
+
+# 在 Yocto WORKDIR 底下實際路徑（build 完才看得到）：
+tmp/work/cortexa35-poky-linux/linux-stm32mp/<version>/git/arch/arm64/boot/dts/st/
+```
+
+**ST 另外維護一個獨立的 [dt-stm32mp](https://github.com/STMicroelectronics/dt-stm32mp) repo**，用 `<domain>/<firmware>` 分類，對本專案的 M33-TD 開發特別有用（因為同一塊板子在不同開機階段/不同 trust domain 需要不同的 dts 變體）：
+
+```
+dt-stm32mp/stm32mp2/
+  ├── a35-td/          ← Cortex-A35 Trust Domain
+  │     ├── linux/      stm32mp215f-dk-ca35tdcid-ostl.dts（主線）
+  │     │               stm32mp215f-dk-ca35tdcid-ostl-m33-examples.dts（含 M33 範例的保留記憶體）
+  │     │               stm32mp215f-dk-psci-osi.dts、-perf-rt.dts（其他變體）
+  │     ├── optee/
+  │     ├── tf-a/
+  │     ├── tfm/
+  │     └── u-boot/
+  └── m33-td/          ← Cortex-M33 Trust Domain（同樣分 linux/optee/tf-a/tfm/u-boot/mcuboot）
+```
+
+`dt-stm32mp` 裡的檔案會被同步／打補丁進 Yocto 的 kernel source，不是 Yocto build 直接讀這個 repo；但要看 ST 針對 M33-TD 場景怎麼寫 reserved-memory、怎麼切 trust domain，這個 repo 是比翻 Yocto WORKDIR 更好找的參考。
 
 ---
 
@@ -166,12 +200,14 @@ static int __init stm32_gpio_init(void)  { /* ... */ return 0; }
 static void __exit stm32_gpio_exit(void) { /* ... */ }
 module_init(stm32_gpio_init);
 module_exit(stm32_gpio_exit);
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL");  // GPL：GNU General Public License，開源授權條款
 ```
 
 ---
 
 ## Linux 與 TrustZone 的互動
+
+SMC（Secure Monitor Call）/ HVC（Hypervisor Call）詳見 arm-architecture/02-exception-levels.md。
 
 ```
 Linux（EL1-NS）
@@ -179,7 +215,7 @@ Linux（EL1-NS）
   │  SMC #0 / HVC #0
   ├────────────────────▶ TF-A BL31（EL3）
   │                         PSCI: CPU on/off, suspend
-  │                         SiP SVC: ST 特定服務（電源管理、OTP 讀取）
+  │                         SiP（Silicon Partner，晶片廠商自訂）SVC（Service，這裡指服務，不是 arm-architecture/02 那個 Supervisor Call 異常）: ST 特定服務（電源管理、OTP 讀取）
   │
   │  ioctl /dev/tee0
   └────────────────────▶ OP-TEE driver（kernel module）

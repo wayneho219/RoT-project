@@ -7,7 +7,7 @@ status: complete
 ---
 
 > [!abstract] TL;DR
-> C 相較 C# 少了 GC、例外處理、OOP，嵌入式開發需手動管理記憶體、使用固定寬度型別（`uint32_t`）、直接操作硬體位址。struct、enum、指標初探是後續模組的基礎。
+> C 相較 C# 少了 GC（Garbage Collector，垃圾回收）、例外處理、OOP（Object-Oriented Programming，物件導向程式設計），嵌入式開發需手動管理記憶體、使用固定寬度型別（`uint32_t`）、直接操作硬體位址。struct、enum、指標初探是後續模組的基礎。
 
 # C 語言 Module 1：基礎概念（從 C# 切入）
 
@@ -20,7 +20,7 @@ status: complete
 | `string` 型別 | 只有 `char` 陣列 + `\0` 結尾 |
 | Exception | 只有回傳值和 `errno` |
 | `namespace` | 用 `static` 限制可見範圍 |
-| `bool`（內建） | C99 後有 `<stdbool.h>`，否則用 `int` |
+| `bool`（內建） | C99（1999 年版 C 語言標準）後有 `<stdbool.h>`，否則用 `int` |
 
 嵌入式 C 連標準函式庫（`printf`、`malloc`）也常不能用。
 
@@ -365,7 +365,7 @@ C# 對應：`ref` 參數，但 C 的指標能做更多。
 **嵌入式核心用途**：硬體暫存器就是特定記憶體位址
 
 ```c
-// GPIO 輸出暫存器在位址 0x50003000
+// GPIO（General-Purpose Input/Output，通用輸出入腳位）輸出暫存器在位址 0x50003000
 uint32_t *gpio_out = (uint32_t *)0x50003000;
 *gpio_out = 0x01;  // 設定 bit 0 = 1，讓 LED 亮
 ```

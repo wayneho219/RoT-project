@@ -45,10 +45,10 @@ Mid OTP（OTP128–OTP255）
   OTP180–254                   Customer 可用
 
 Upper OTP（OTP256–OTP383）
-  OTP256–259 OTP_RMA_LOCK_PSWD  RMA 密碼
+  OTP256–259 OTP_RMA_LOCK_PSWD  RMA（Return Merchandise Authorization，退貨/維修授權）密碼
   OTP260–347 OEM Secrets         OEM 機密（客戶可用）
-  OTP348–355 OEM_KEY2_EDMK0–7  OEM Key2 加密主金鑰（FSBLM 解密）
-  OTP356–363 OEM_KEY1_EDMK0–7  OEM Key1 加密主金鑰（FSBLA/M 解密）
+  OTP348–355 OEM_KEY2_EDMK0–7  OEM Key2 加密主金鑰（FSBLM，M33 側 FSBL 解密）
+  OTP356–363 OEM_KEY1_EDMK0–7  OEM Key1 加密主金鑰（FSBLA/M，A35/M33 側 FSBL 解密）
   OTP364–375 STM32ENCPRVKEY     ST ECC 裝置加密私鑰
   OTP376–383 HWKEY0–7           Hardware Unique Key（HUK）
                                  8 × 32bit = 256 bits
@@ -59,7 +59,7 @@ Upper OTP（OTP256–OTP383）
 ```
 OTP12 (BOOTROM_CONFIG_3)
   bit[31:0] = oem_fsbla_monotonic_counter
-  OEM FSBL 防回滾計數器（版本號 = 最高有效 bit 的位置，MSB-encoded）
+  OEM FSBL 防回滾計數器（版本號 = 最高有效 bit 的位置，MSB-encoded，MSB = Most Significant Bit，最高有效位元）
 
 OTP18 (BOOTROM_CONFIG_9)
   bit[3:0]  = secure_boot（0=CLOSED_UNLOCKED，[1-15]=CLOSED_LOCKED 強制驗章）
@@ -98,7 +98,7 @@ for (int i = 0; i < 8; i++) {
 
 ```c
 // 燒錄前必須確認 OTP programming voltage 已啟用
-// STM32MP215F-DK 上通過 PMIC 控制
+// STM32MP215F-DK 上通過 PMIC（Power Management Integrated Circuit，電源管理晶片）控制
 
 // 燒錄 ROTPKH word 0（OEM_KEY1_ROT0 = OTP152）
 uint32_t rotpkh_word0 = 0x2cf24dba;   // SHA-256 前 4 bytes

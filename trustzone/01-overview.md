@@ -56,10 +56,10 @@ Secure World holds:                   Normal World can only:
 | 場景 | TrustZone 扮演的角色 |
 |------|---------------------|
 | Mobile Payment | 指紋資料在 Secure World 驗證 |
-| DRM 金鑰保護 | 解密 key 永遠在 Secure World |
+| DRM（Digital Rights Management，數位版權管理）金鑰保護 | 解密 key 永遠在 Secure World |
 | Secure Boot | M33 在 Secure 側驗證 firmware |
 | 遠端驗證（Attestation）| SW 產生的 report 帶有硬體簽章 |
-| OTA 更新 | 只有帶有合法簽章的 image 才能 apply |
+| OTA（Over-The-Air）更新 | 只有帶有合法簽章的 image 才能 apply |
 
 ---
 
@@ -113,7 +113,7 @@ arm_smccc_smc(OPTEE_SMC_CALL_WITH_ARG,
 ## TrustZone 的限制
 
 TrustZone **不能** 防禦：
-- 硬體攻擊（探針、DPA 側信道）
+- 硬體攻擊（探針、DPA（Differential Power Analysis，差分功率分析）側信道）
 - Secure World 自身的軟體漏洞（TA 寫得不好）
 - M33 ROM code 的漏洞（這是真正的硬體 RoT）
 

@@ -39,6 +39,8 @@ U-Boot → Linux
 
 ---
 
+下方程式碼會用到 BSEC（Boot and Security Controller，管理 OTP 的控制器）讀寫 OTP（One-Time Programmable，一次性可燒錄記憶體），細節詳見 stm32mp2/02-bsec-otp.md。
+
 ## 驗證流程（M33 側實作）
 
 ```c
@@ -141,13 +143,13 @@ uint32_t otp_get_min_version(void) {
 ```
 生產環境金鑰管理：
 
-Private Key（ECDSA-P256）
+Private Key（ECDSA-P256，P256 為 NIST 訂定的橢圓曲線參數）
   └── 存在 HSM（Hardware Security Module）中
   └── 永遠不離開 HSM
   └── Build 系統送 hash 進去，HSM 返回簽章
 
-Public Key（ROTPK）
-  └── 計算 SHA-256（Public Key Hash = ROTPKH）
+Public Key（ROTPK，Root of Trust Public Key）
+  └── 計算 SHA-256（Public Key Hash = ROTPKH，Root of Trust Public Key Hash）
   └── 燒錄到 OTP（出廠時，不可逆）
   └── M33 firmware 執行時從 OTP 讀取並驗證 firmware 簽章
 
@@ -187,14 +189,14 @@ STM32MP21xx 相關 OTP 配置（RM0506 Table 33-36）：
 
   OTP18 (BOOTROM_CONFIG_9)
     bit[3:0]  = secure_boot  → [1-15] = CLOSED_LOCKED（啟用 Secure Boot）
-    bit[11:8] = debug_lock   → [1-15] = 鎖住 JTAG/debug
+    bit[11:8] = debug_lock   → [1-15] = 鎖住 JTAG（Joint Test Action Group，晶片除錯/燒錄的硬體介面標準）/debug
 
   OTP152-159 (OEM_KEY1_ROT0-7)
     → Root of Trust Public Key Hash（256 bits = 8 words）
     → SHA-256(OEM Public Key) 燒入此處
 
   OTP12 (BOOTROM_CONFIG_3)
-    bit[31:0] = oem_fsbla_monotonic_counter → OEM FSBL 防回滾計數器
+    bit[31:0] = oem_fsbla_monotonic_counter → OEM（Original Equipment Manufacturer，這裡指板廠/你自己）FSBL 防回滾計數器
 ```
 
 ---

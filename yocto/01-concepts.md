@@ -162,6 +162,41 @@ dot -Tpng task-depends.dot > dep.png
 
 ---
 
+## devtool：疊代開發流程
+
+**為什麼需要它：** 改一行 recipe 就要 `bitbake -c cleansstate` 重編、改 kernel/driver source 更是要手動維護 patch，太慢。`devtool` 把「改 source → 編譯 → 部署到板子測試 → 收斂回 recipe/patch」這個循環自動化。
+
+```
+devtool modify <recipe>       抽出 source 到 workspace，變成可直接編輯的 git repo
+        │  修改 source（正常用 vim/vscode 改）
+        ▼
+devtool build <recipe>        只重編這個 recipe（不用管其他 sstate）
+        │
+        ▼
+devtool deploy-target <recipe> root@<板子IP>   直接把編譯結果 rsync 上板子跑跑看
+        │  （測試 OK 後）
+        ▼
+devtool finish <recipe> <layer>   把 workspace 的修改收斂成 patch，寫回 recipe/.bbappend
+```
+
+```bash
+# 例：修改 u-boot 加一個 patch
+devtool modify u-boot
+cd workspace/sources/u-boot
+# 改程式碼...
+devtool build u-boot
+devtool deploy-target u-boot root@192.168.x.x   # 板子要能 ssh 進去
+# 確認沒問題後
+devtool finish u-boot meta-rot   # 產生 patch，寫進 meta-rot layer 的 .bbappend
+
+# 其他常用指令
+devtool status                  # 看目前 workspace 裡在改哪些 recipe
+devtool reset u-boot             # 放棄修改，恢復原本 recipe
+devtool add <name> <source-url>  # 從零建一個新 recipe（而非修改既有的）
+```
+
+---
+
 ## 理解 Build 輸出
 
 ```

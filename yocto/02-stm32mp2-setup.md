@@ -11,13 +11,13 @@ ST 提供 **OpenSTLinux**（基於 Yocto 的 STM32MP2 官方 Linux 發行版）�
 
 ```
 repo: https://github.com/STMicroelectronics/meta-st-stm32mp
-version: Kirkstone (LTS) or Scarthgap
+version: Kirkstone (LTS，Long Term Support，長期支援版本) or Scarthgap
 
 includes:
   ├── meta-st-stm32mp/      STM32MP SoC layer
   ├── meta-st-openstlinux/  ST distro layer
-  ├── BSP (kernel config, devicetree)
-  └── pre-built TF-A / OP-TEE recipes
+  ├── BSP (Board Support Package，板級支援套件：kernel config, devicetree)
+  └── pre-built TF-A（Trusted Firmware-A）/ OP-TEE（Open Portable TEE，詳見 boot-flow/02-tf-a.md）recipes
 ```
 
 ---
@@ -127,13 +127,13 @@ ls tmp/deploy/images/stm32mp215f-dk/
 ## 燒錄到 STM32MP215F-DK
 
 ```bash
-# 使用 STM32CubeProgrammer CLI
+# 使用 STM32CubeProgrammer CLI（Command Line Interface，命令列介面，相對於 GUI 圖形介面版本）
 STM32_Programmer_CLI -c port=USB1 \
   -d tmp/deploy/images/stm32mp215f-dk/FlashLayout_sdcard_stm32mp215f-dk-basic.tsv \
   -fl /path/to/programmers/FlashStartUpGeneral_Programmer.stm32 \
   -rdu
 
-# tsv 檔描述各個 partition 要燒什麼
+# tsv（Tab-Separated Values，以 Tab 分隔欄位的文字檔格式）檔描述各個 partition 要燒什麼
 # FlashLayout 由 ST 提供，對應 SD Card / eMMC 佈局
 ```
 

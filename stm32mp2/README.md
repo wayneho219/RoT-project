@@ -16,7 +16,7 @@ SoC: STM32MP215F
 板載儲存：
   └── microSD slot（boot source，TF-A FIP + Linux image）
 
-板載 DRAM：
+板載 DRAM（Dynamic RAM，動態隨機存取記憶體）：
   └── LPDDR4（2 GB）
 ```
 
@@ -24,6 +24,7 @@ SoC: STM32MP215F
 
 | 模組 | 主題 |
 |------|------|
+| [00-dev-environment](00-dev-environment.md) | 開發環境規劃、機器分工、線材、燒錄流程 |
 | [01-hardware](01-hardware.md) | 硬體架構、記憶體映射、周邊 |
 | [02-bsec-otp](02-bsec-otp.md) | BSEC/OTP 操作、fuse 規劃 |
 | [03-m33-td-setup](03-m33-td-setup.md) | M33 TD 初始化、RCC、IPC |

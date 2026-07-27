@@ -60,7 +60,7 @@ BL33 → Non-Trusted Firmware（U-Boot / UEFI）
 ### BL2 的 Chain of Trust
 
 ```c
-// TF-A 的 CoT 透過 X.509 憑證鏈驗證：
+// TF-A 的 CoT（Chain of Trust，信任鏈）透過 X.509（ITU-T 制定的數位憑證標準格式）憑證鏈驗證：
 //
 // ROTPK（Root of Trust Public Key，燒在 OTP 中）
 //   └── 驗證 Trusted Key Certificate（由 ROTPK 簽署）
@@ -143,7 +143,7 @@ Linux（EL1-NS）           OP-TEE kernel（EL1-S）
   │  tee-supplicant       │  Trusted Applications（EL0-S）
   │  /dev/tee0            │    ├── Key Storage TA
   │                       │    ├── Crypto TA
-  └── ioctl(TEE_IOCTL_OPEN_SESSION)
+  └── ioctl（I/O Control，Linux 對裝置檔案發送控制指令的系統呼叫）(TEE_IOCTL_OPEN_SESSION)
         │ SMC via BL31
         ▼
       OP-TEE 處理 TA 呼叫

@@ -223,7 +223,7 @@ __attribute__((section(".vectors")))
 VectorEntry vector_table[] = {
     (VectorEntry)0x20010000,  // 初始 Stack Pointer
     reset_handler,             // Reset
-    nmi_handler,               // NMI
+    nmi_handler,               // NMI（Non-Maskable Interrupt，不可遮罩中斷，優先權最高、無法被關閉的中斷）
     hardfault_handler,         // HardFault
     // ...
 };

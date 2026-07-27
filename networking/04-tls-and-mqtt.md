@@ -109,7 +109,7 @@ int ota_download(const char *host, const char *path,
     // 連線
     mbedtls_net_connect(&net, host, "443", MBEDTLS_NET_PROTO_TCP);
     mbedtls_ssl_setup(&ssl, &conf);
-    mbedtls_ssl_set_hostname(&ssl, host);  // SNI
+    mbedtls_ssl_set_hostname(&ssl, host);  // SNI：Server Name Indication，告訴 server 要連哪個網域（同一 IP 可服務多個網域）
     mbedtls_ssl_set_bio(&ssl, &net,
                         mbedtls_net_send, mbedtls_net_recv, NULL);
 
@@ -167,7 +167,7 @@ wildcard：
   devices/#               # = 多層萬用字元（所有裝置的所有訊息）
 ```
 
-### QoS 等級
+### QoS（Quality of Service，服務品質）等級
 
 ```
 QoS 0  至多一次  Fire-and-forget，可能遺失，最低開銷
@@ -249,7 +249,7 @@ PSK 方式（Pre-Shared Key）：
 | 問題 | 要點 |
 |------|------|
 | HTTPS 和 HTTP 的差別？ | TLS 層加密，防竊聽和竄改 |
-| TLS 1.3 和 1.2 的主要差別？ | 握手減少 1 RTT；移除舊算法（RSA key exchange, CBC, MD5/SHA1）|
+| TLS 1.3 和 1.2 的主要差別？ | 握手減少 1 RTT（Round-Trip Time，來回傳輸時間）；移除舊算法（RSA key exchange, CBC, MD5/SHA1）|
 | Perfect Forward Secrecy 是什麼？ | 每次 session 用不同 key，私鑰洩漏不影響過去流量 |
 | MQTT 和 HTTP 的差別？ | MQTT 是持久連線 + pub/sub；HTTP 是請求/回應，適合大量裝置 |
 | 中間人攻擊（MITM）怎麼防？ | 驗證 Server 憑證（Certificate Pinning 更強）|

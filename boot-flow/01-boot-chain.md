@@ -17,7 +17,7 @@ Power-on
   ▼
 A35 ROM Code (BootROM)
   │  └── boot device (microSD / eMMC / USB)
-  │  └── load & verify TF-A BL2（fsbl1/fsbl2 partition）
+  │  └── load & verify TF-A BL2（fsbl1/fsbl2 partition，FSBL，First Stage Boot Loader，第一階段開機程式）
   ▼
 TF-A BL2（early stage）
   │  └── load M33 Secure Firmware into SYSRAM
@@ -113,7 +113,7 @@ fail:
 - 常駐在 EL3，永遠不被卸載
 - 實作 PSCI（電源狀態控制介面）：CPU on/off、suspend、reset
 - 作為 Secure Monitor：Linux 透過 SMC 呼叫它管理世界切換
-- 設定 TZASC：隔離 DDR 的 Secure 和 Non-Secure 區域
+- 設定 TZASC（TrustZone Address Space Controller，TrustZone 位址空間控制器）：隔離 DDR 的 Secure 和 Non-Secure 區域
 
 ### U-Boot（BL33）
 

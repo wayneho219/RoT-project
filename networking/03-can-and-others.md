@@ -12,9 +12,9 @@ topic: networking
 CAN 是汽車電子和工業控制的主流協定，如果你的履歷未來要往車用或工業靠：
 
 ```
-汽車 ECU 通訊：引擎控制 ↔ ABS ↔ 儀表板（CAN）
-工業設備：PLC ↔ 感測器 ↔ 驅動器（CANopen）
-機器人：馬達控制（CAN FD）
+汽車 ECU（Electronic Control Unit，電子控制單元）通訊：引擎控制 ↔ ABS（Anti-lock Braking System，防鎖死煞車系統）↔ 儀表板（CAN）
+工業設備：PLC（Programmable Logic Controller，可程式邏輯控制器）↔ 感測器 ↔ 驅動器（CANopen）
+機器人：馬達控制（CAN FD，Flexible Data-rate，可變資料速率版本）
 ```
 
 ### CAN 特性
@@ -34,9 +34,12 @@ CAN 是汽車電子和工業控制的主流協定，如果你的履歷未來要�
 SOF  ID(11)  RTR  IDE  r  DLC(4)  Data(0-8 bytes)  CRC(15)  ACK  EOF
  1    11       1    1   1    4      0–64 bits          15      2    7
 
+SOF = Start of Frame，訊框開始
 ID = 訊息識別符（也是優先級，ID 越小越高優先）
-DLC = 資料長度（0–8 bytes）
+DLC（Data Length Code）= 資料長度（0–8 bytes）
 RTR = 遠端請求幀（Remote Transmission Request）
+IDE = Identifier Extension，是否使用擴充（29-bit）ID
+EOF = End of Frame，訊框結束
 ```
 
 ### 仲裁機制
@@ -97,7 +100,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
   PC ─── USB ──▶ STM32MP215F (DFU mode)
   download firmware, write Flash
 
-[CDC - Virtual COM Port]
+[CDC（Communication Device Class）- Virtual COM Port]
   STM32 emulates COM port
   PC sees /dev/ttyUSB0 or COM3
 
@@ -143,7 +146,7 @@ CPU ─── GMAC (MAC layer) ─── MII/RGMII bus ─── PHY chip ──
 ```
 - MAC（Media Access Control）：軟體層（Linux 驅動）
 - PHY（Physical Layer）：硬體晶片（處理電訊號）
-- MII/RGMII：MAC 和 PHY 之間的介面
+- MII（Media Independent Interface）/RGMII（Reduced Gigabit MII，腳位較少的 Gigabit 版本）：MAC 和 PHY 之間的介面
 
 ### Linux Ethernet 配置
 
@@ -206,7 +209,7 @@ gmac0: ethernet@4c000000 {
 | CAN 和 RS-485 有什麼差？ | 都是差分信號；CAN 有硬體仲裁和錯誤偵測；RS-485 沒有 |
 | USB 的 4 條線分別是？ | VBUS（電源）、D-（差分負）、D+（差分正）、GND |
 | Ethernet 為什麼要 PHY chip？ | MAC 做封包處理；PHY 做實體電訊號（需要特殊類比電路）|
-| MDIO 是什麼？ | 管理介面，CPU 用來設定 PHY 暫存器（速度、雙工模式）|
+| MDIO（Management Data Input/Output）是什麼？ | 管理介面，CPU 用來設定 PHY 暫存器（速度、雙工模式）|
 
 ---
 

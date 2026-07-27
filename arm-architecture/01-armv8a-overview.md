@@ -16,10 +16,10 @@ STM32MP215F-DK 的 Cortex-A35 是 ARMv8-A 架構，執行 TF-A、U-Boot 和 Linu
 
 ARMv8-A 有兩種執行狀態（Execution State）：
 
-| 狀態 | 位元寬 | 指令集 | 使用時機 |
-|------|--------|--------|---------|
-| **AArch64** | 64-bit | A64 | 現代 OS、TF-A、U-Boot |
-| **AArch32** | 32-bit | A32/T32（Thumb） | 舊 32-bit 程式碼相容 |
+| 狀態          | 位元寬    | 指令集            | 使用時機              |
+| ----------- | ------ | -------------- | ----------------- |
+| **AArch64** | 64-bit | A64            | 現代 OS（Operating System，作業系統）、TF-A、U-Boot |
+| **AArch32** | 32-bit | A32/T32（Thumb） | 舊 32-bit 程式碼相容    |
 
 Cortex-A35 預設在 AArch64 開機，但可以切換到 AArch32（例如執行舊版 Linux）。  
 本專案的 TF-A 和 Linux 都用 AArch64。
@@ -33,7 +33,7 @@ Cortex-A35 預設在 AArch64 開機，但可以切換到 AArch32（例如執行�
 ```
 CPU 內部（暫存器）：
 ┌────┬────┬────┬────┬────┐
-│ X0 │ X1 │ X2 │ X3 │... │  ← 速度極快，但只有幾十個
+│ X0 │ X1 │ X2 │ X3 │... │  ← 速度極快，但只有幾十個暫存器（ARM: 31 / x86-64: 16）
 └────┴────┴────┴────┴────┘
 
 RAM（記憶體）：
@@ -81,11 +81,12 @@ PSTATE   程式狀態旗標：
            EL = 目前的 Exception Level（0~3）
 ```
 
-### 系統暫存器（透過 MSR/MRS 存取）
+### 系統暫存器（透過 MSR（Move to System Register）/MRS（Move from System Register）存取）
 
 ```c
 // 讀取目前 Exception Level
 uint64_t el;
+//(asm 使用組合語言去作 C 做不到的操作)
 asm("mrs %0, CurrentEL" : "=r"(el));
 el = (el >> 2) & 3;  // bit [3:2] 是 EL 值
 
@@ -147,7 +148,7 @@ LDRB W0 從任意位址   → 永遠 OK（1-byte 無對齊要求）
 
 ---
 
-## 呼叫慣例（AAPCS64）
+## 呼叫慣例（AAPCS64，ARM 64-bit Procedure Call Standard，ARM 官方函式呼叫規範）
 
 ```c
 // C 函式對應的 AArch64 約定
@@ -184,7 +185,7 @@ A35 是 ARMv8-A 中效能最低、功耗最省的，適合 IoT 和嵌入式場�
 
 ```
 存取速度（快 → 慢）：
-CPU 暫存器 < L1 Cache < L2 Cache < RAM（DDR）< Flash（NOR）
+CPU 暫存器 < L1 Cache < L2 Cache < RAM（DDR，Double Data Rate，雙倍資料傳輸率記憶體）< Flash（NOR，Not OR，一種以反或閘命名的快閃記憶體類型）
 
   L1 Cache：幾十 KB，幾個 cycle
   L2 Cache：幾百 KB，十幾個 cycle

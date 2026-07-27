@@ -238,7 +238,7 @@ void pool_free(uint8_t *ptr) {
 
 ```
 main.o   ─┐
-flash.o  ─┼── Linker ──→ firmware.elf（有真實位址）──→ firmware.bin
+flash.o  ─┼── Linker ──→ firmware.elf（ELF，Executable and Linkable Format，可執行與可連結格式，有真實位址）──→ firmware.bin
 uart.o   ─┘         ↑
                 linker script 告訴 linker 各段放哪裡
 ```
