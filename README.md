@@ -5,8 +5,8 @@
 
 ## 硬體
 - **開發板**：STM32MP215F-DK（~NT$2,603，Mouser）
-- **架構**：Cortex-A35（SoC）+ Cortex-M33 TD（RoT MCU）
-- **儲存**：microSD（boot source，TF-A FIP + Linux image）
+- **架構**：Cortex-A35（SoC，System on Chip，單晶片系統）+ Cortex-M33 TD（TD，Trusted Domain，可信任域；RoT MCU）
+- **儲存**：microSD（boot source，TF-A（Trusted Firmware-A，ARM（Advanced RISC Machines，架構/晶片 IP 供應商，現稱 Arm）官方開源 Secure Boot 實作）FIP（Firmware Image Package，把多個開機映像檔打包成一個檔案的格式） + Linux image）
 
 ## 專案架構概念
 ```
@@ -18,7 +18,7 @@ M33-TD（RoT）
  └── 失敗 → A35 永遠不開機
 
 A35（Application Processor）
- ├── TF-A BL2 → BL31
+ ├── TF-A BL2（Boot Loader stage 2）→ BL31（Boot Loader stage 3.1，常駐 Secure Monitor）
  ├── U-Boot
  └── Linux（Yocto build）
 ```
@@ -29,10 +29,10 @@ A35（Application Processor）
 |------|------|--------|------|
 | Week 1–2 | C 語言基礎 | `c-language/` | Module 01–08，指標、位元操作、嵌入式語法 |
 | Week 3–4 | ARM 架構概念 | `arm-architecture/` | ARMv8-A（A35）、Exception Level、Cortex-M33 |
-| Week 5–6 | Boot Flow + TrustZone | `boot-flow/` `trustzone/` | TF-A 鏈、SAU/IDAU、Secure Storage |
+| Week 5–6 | Boot Flow + TrustZone | `boot-flow/` `trustzone/` | TF-A 鏈、SAU（Security Attribution Unit）/IDAU（Implementation Defined Attribution Unit）、Secure Storage |
 | Week 7–8 | Yocto 實作 | `yocto/` | Layer、Recipe、STM32MP2 image 建立 |
-| Week 9 | 密碼學基礎 | `cryptography/` | SHA-256、ECDSA、AES-GCM、PKI 鏈 |
-| Week 9+ | STM32MP2 實作 | `stm32mp2/` | BSEC/OTP、M33 TD 初始化、完整 RoT |
+| Week 9 | 密碼學基礎 | `cryptography/` | SHA-256、ECDSA、AES-GCM、PKI（Public Key Infrastructure，公開金鑰基礎設施）鏈 |
+| Week 9+ | STM32MP2 實作 | `stm32mp2/` | BSEC（Boot and Security，ST 的 OTP 控制器）/OTP（One-Time Programmable，一次性可燒錄記憶體）、M33 TD 初始化、完整 RoT |
 | 補充 | 網路與協定 | `networking/` | OSI 7 層、UART/SPI/I2C、CAN Bus、TLS、MQTT |
 
 ## 履歷目標功能

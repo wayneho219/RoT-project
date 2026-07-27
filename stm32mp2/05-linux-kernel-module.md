@@ -8,7 +8,7 @@ week: "9+"
 ## 目標
 
 在 A35 Linux 上寫一個 kernel driver，讀取 M33 寫入共享記憶體的驗證結果，  
-並透過 `/dev/rot` 或 sysfs 暴露給 user space。
+並透過 `/dev/rot` 或 sysfs 暴露給 user space。IPC（Inter-Process Communication，這裡指 M33↔A35 共享記憶體通訊）機制詳見 stm32mp2/03-m33-td-setup.md。
 
 ---
 
@@ -87,12 +87,13 @@ struct rot_ipc_priv {
 static int rot_ipc_probe(struct platform_device *pdev) {
     struct rot_ipc_priv *priv;
     
+    // GFP_KERNEL：Get Free Pages，一般 kernel 記憶體配置旗標（可以 sleep）
     priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
-    if (!priv) return -ENOMEM;
+    if (!priv) return -ENOMEM;  // errno 命名慣例：E + 錯誤描述縮寫，ENOMEM = Error No Memory
 
     // 從 Device Tree 取得實體位址
     struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-    if (!res) return -ENODEV;
+    if (!res) return -ENODEV;  // ENODEV = Error No Device
 
     // 映射到 kernel 虛擬位址
     priv->base = devm_ioremap_resource(&pdev->dev, res);
@@ -243,7 +244,7 @@ rot_ipc: rot-ipc@20020000 {
 ```
 
 ```c
-// 對應的 of_device_id table
+// 對應的 of_device_id table（of = Open Firmware，Linux 沿用其 device tree API 命名前綴）
 static const struct of_device_id rot_ipc_of_match[] = {
     { .compatible = "st,stm32mp2-rot-ipc" },
     {}
@@ -338,6 +339,6 @@ clean:
 | `ioremap` 和 `*ptr` 有什麼差？ | ioremap 通知 kernel 這段是 IO，禁止 cache；直接指標存取不保證 memory barrier |
 | `readl` / `writel` 為什麼要用？ | 確保順序和 volatile 語意；不同架構可能需要 barrier |
 | `devm_*` 函式族的意義？ | device-managed，device 移除時自動釋放，不用手動 free |
-| 為什麼要 `rmb()` / `wmb()`？ | ARM 弱記憶體序；確保 CPU 看到 M33 寫入的最新值 |
+| 為什麼要 `rmb()`（read memory barrier）/ `wmb()`（write memory barrier）？ | ARM 弱記憶體序；確保 CPU 看到 M33 寫入的最新值 |
 | module_platform_driver 做了什麼？ | 展開成 module_init + module_exit + driver register |
 | sysfs vs /dev 選哪個？ | 狀態查詢用 sysfs；需要 ioctl 或 poll 用 /dev |

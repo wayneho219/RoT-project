@@ -30,7 +30,7 @@ Goal:
 #include "memcmp_ct.h"
 
 #define SD_FW_PARTITION   "fip"        // GPT partition name（或用 sector offset）
-#define SD_FW_LBA_OFFSET  0x1000UL     // FIP partition 起始 LBA（示意，實際看 GPT）
+#define SD_FW_LBA_OFFSET  0x1000UL     // FIP partition 起始 LBA（Logical Block Address，邏輯區塊位址；示意，實際看 GPT）
 
 typedef struct __attribute__((packed)) {
     uint8_t  magic[4];      // "ROTF"
@@ -39,7 +39,7 @@ typedef struct __attribute__((packed)) {
     uint8_t  pubkey[65];    // ECDSA P-256 Public Key（04 || x || y）
     uint8_t  sha256[32];    // firmware body 的 SHA-256
     uint8_t  signature[64]; // ECDSA 簽章（r || s）
-    uint32_t crc32;         // header 本身的 CRC32（防意外損毀）
+    uint32_t crc32;         // header 本身的 CRC32（Cyclic Redundancy Check，循環冗餘校驗；防意外損毀）
 } FirmwareHeader;
 
 int verify_a35_firmware(const uint8_t rotpkh[32]) {  // ROTPKH = 256 bits = 32 bytes
@@ -132,7 +132,7 @@ int hardware_sha256_sd(uint32_t lba_offset, uint32_t size, uint8_t out[32]) {
 
 ---
 
-## 硬體 ECDSA 驗章（PKA）
+## 硬體 ECDSA 驗章（PKA，Public Key Accelerator，見 stm32mp2/01-hardware.md）
 
 ```c
 int hardware_ecdsa_verify(
@@ -204,7 +204,7 @@ void rot_halt(ROT_Error err) {
     __DSB();
     
     // 選項 A：無限迴圈（A35 永遠不啟動）
-    while (1) { __WFI(); }
+    while (1) { __WFI(); }  // WFI：Wait For Interrupt，睡眠直到中斷喚醒
     
     // 選項 B（進階）：關閉所有 peripheral，進入最低功耗狀態
     // HAL_PWR_EnterSTANDBYMode();  // 需要確認不會被 watchdog 喚醒

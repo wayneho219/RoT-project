@@ -200,7 +200,7 @@ ctrl.enable = 1;
 // Pin 5 的 mode 在 bit [11:10]
 // 00 = Input, 01 = Output, 10 = Alternate, 11 = Analog
 
-// GPIOA base address（RM0506 Table 9）
+// GPIOA base address（RM0506，ST 官方 STM32MP21xx Reference Manual，Table 9）
 // 非安全別名：0x44240000，安全別名（M33 Secure）：0x54240000
 volatile uint32_t *GPIOA_MODER = (volatile uint32_t *)0x54240000;
 

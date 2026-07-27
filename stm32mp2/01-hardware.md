@@ -28,15 +28,15 @@ week: "9+"
 
 ```
 Connectivity:
-  ├── Ethernet RJ45 (100 Mbit/s, RMII)
+  ├── Ethernet RJ45 (100 Mbit/s, RMII，Reduced Media Independent Interface，乙太網路 PHY 連接介面)
   ├── USB 2.0 Type-C
   ├── microSD slot
-  ├── M.2 E-Key (Wi-Fi / Bluetooth SDIO)
+  ├── M.2 E-Key (Wi-Fi / Bluetooth SDIO，Secure Digital Input Output，一種周邊擴充介面)
   └── GPIO header (Raspberry Pi shield compatible)
 
 Display / Camera:
-  ├── LTDC display connector (LCD)
-  └── Dual-lane MIPI CSI-2 camera connector
+  ├── LTDC (LCD-TFT Display Controller，LCD 顯示控制器) display connector (LCD)
+  └── Dual-lane MIPI（Mobile Industry Processor Interface，行動裝置周邊介面聯盟標準）CSI-2（Camera Serial Interface，相機序列介面）camera connector
 
 Debug:
   ├── MIPI10 JTAG
@@ -64,7 +64,7 @@ STM32MP2 - 15 - F  - DK
   │          │    │    └── Discovery Kit（開發板）
   │          │    └──── F：Secure Boot + 密碼學硬體 + 最高頻率
   │          └──────── 215：產品系列
-  └─────────────────── STM32MP2：STM32 Cortex MPU 系列
+  └─────────────────── STM32MP2：STM32 Cortex MPU（Microprocessor Unit，微處理器單元；注意跟 arm-architecture/04 的 MPU＝Memory Protection Unit 是同縮寫、不同意思，這裡指晶片產品線分類）系列
 ```
 
 **F 型號代表**：
@@ -98,10 +98,12 @@ STM32MP215F (ARMv8)
       ├── UART (USART1-8)
       ├── SPI (SPI1-6)
       ├── I2C (I2C1-7)
-      ├── USB (OTG HS/FS)
-      ├── Ethernet (GMAC)
+      ├── USB (OTG，On-The-Go，可切換 host/device 角色； HS/FS，High Speed/Full Speed)
+      ├── Ethernet (GMAC，Gigabit Media Access Controller)
       └── PKA, HASH, RNG (crypto accelerators)
 ```
+
+提醒：TF-A（Trusted Firmware-A）、BL31（Boot Loader stage 3.1）、OP-TEE（Open Portable Trusted Execution Environment）在 boot-flow/ 已詳細介紹。
 
 ---
 
@@ -118,16 +120,16 @@ Address Range          Bus      Description
 0x0A00_0000            SRAM     SYSRAM + RETRAM + SRAM1（非安全別名）
 0x0E00_0000            SRAM     SYSRAM + RETRAM + SRAM1（安全別名）
                                  SYSRAM 256 KB / RETRAM 128 KB / SRAM1 64 KB
-0x4000_0000            APB1     TIM2, UART, SPI, I2C...
+0x4000_0000            APB1（Advanced Peripheral Bus，低速周邊匯流排）     TIM2, UART, SPI, I2C...
 0x4020_0000            APB2     TIM1, USART1, SPI1...
-0x4040_0000            AHB2     HPDMA, Cache, ADC, OCTOSPI
-0x4200_0000            AHB3     HASH, RNG, SAES, PKA, CRYP, RIFSC
+0x4040_0000            AHB2（Advanced High-performance Bus，高速匯流排）     HPDMA（High Performance DMA）, Cache, ADC, OCTOSPI（Octo SPI，8 線 SPI 高速快閃記憶體介面）
+0x4200_0000            AHB3     HASH, RNG, SAES, PKA, CRYP（Cryptographic Processor，舊版加密周邊）, RIFSC
 0x4400_0000            APB3     BSEC（0x4400_0000）
 0x4420_0000            AHB4     RCC（0x4420_0000）, GPIOA（0x4424_0000）...
 0x5000_0000            -        （同 0x4xxx，Secure alias，位址差 0x1000_0000）
 0x6000_0000            FMC      External memory space（板上未接 NOR Flash）
 0x8000_0000  2 GB      DDR      LPDDR4（Linux / A35 用）
-0xE000_0000            PPB      Cortex-M33 system regs（NVIC, MPU, SAU）
+0xE000_0000            PPB（Private Peripheral Bus，Cortex-M 內部系統周邊專用匯流排）      Cortex-M33 system regs（NVIC, MPU, SAU）
 ```
 
 ### 從 C 存取暫存器
@@ -210,7 +212,7 @@ HASH
 RNG (True RNG)
   └── Entropy source: CMOS thermal noise
   └── Output: 32-bit random words
-  └── Compliant with NIST SP800-90A
+  └── Compliant with NIST（National Institute of Standards and Technology，美國國家標準與技術研究院）SP800-90A
 
 SAES (Secure AES)
   └── AES-128 / 192 / 256

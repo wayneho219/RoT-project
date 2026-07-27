@@ -28,11 +28,11 @@ AES 本身只加密 16 bytes，要加密長資料需要選擇**操作模式**：
 
 | 模式 | 完整性 | 特性 |
 |------|--------|------|
-| ECB | 無 | 每塊獨立，相同明文 → 相同密文，**不要用** |
-| CBC | 無 | 有 IV，但不提供認證 |
-| CTR | 無 | 把 AES 當 stream cipher，可並行 |
-| **GCM** | **有（AEAD）** | 加密 + 認證，RoT 標準選擇 |
-| CCM | 有（AEAD）| 嵌入式常用，比 GCM 稍慢 |
+| ECB（Electronic Codebook） | 無 | 每塊獨立，相同明文 → 相同密文，**不要用** |
+| CBC（Cipher Block Chaining） | 無 | 有 IV（Initialization Vector，初始化向量），但不提供認證 |
+| CTR（Counter） | 無 | 把 AES 當 stream cipher，可並行 |
+| **GCM（Galois/Counter Mode）** | **有（AEAD）** | 加密 + 認證，RoT 標準選擇 |
+| CCM（Counter with CBC-MAC） | 有（AEAD）| 嵌入式常用，比 GCM 稍慢 |
 
 **RoT 使用 AES-256-GCM**（Authenticated Encryption with Associated Data）。
 
@@ -47,7 +47,7 @@ GCM = CTR mode 加密 + GHASH 認證
   key         32 bytes
   nonce（IV） 12 bytes（96-bit，推薦固定長度）
   plaintext   任意長度
-  AAD         附加認證資料（不加密但要認證，可選）
+  AAD（Additional Authenticated Data） 附加認證資料（不加密但要認證，可選）
 
 輸出：
   ciphertext  和 plaintext 相同長度
@@ -144,7 +144,7 @@ HKDF 從一個 master secret 衍生多個不同用途的 key：
 
 ```
 輸入：
-  IKM（Input Keying Material）= HUK（32 bytes）
+  IKM（Input Keying Material）= HUK（Hardware Unique Key，每顆晶片唯一的硬體金鑰，詳見 trustzone/04-secure-storage.md，32 bytes）
   salt                        = 可選（建議加）
   info                        = 用途說明字串（區分不同衍生的 key）
   len                         = 想要的 output 長度

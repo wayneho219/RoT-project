@@ -22,6 +22,7 @@ M33 TD (Trusted Domain) hardware features:
   ├── Owns Secure SRAM (invisible to A35)
   └── Configures RIFSC (security attribute per peripheral)
 ```
+提醒：BL2/BL31（TF-A 的 Boot Loader 階段）詳見 boot-flow/02-tf-a.md；RCC（Reset and Clock Controller）詳見 stm32mp2/01-hardware.md。
 
 ---
 
@@ -91,7 +92,7 @@ infinite_loop:
 
 void SystemInit(void) {
     // 1. 啟用 FPU（Floating Point Unit）
-    SCB->CPACR |= (0xF << 20);  // CP10 / CP11 全開
+    SCB->CPACR |= (0xF << 20);  // CPACR：Coprocessor Access Control Register；CP10 / CP11 全開
     __DSB();
     __ISB();
 
@@ -100,7 +101,7 @@ void SystemInit(void) {
     RCC->CR |= RCC_CR_HSION;
     while (!(RCC->CR & RCC_CR_HSIRDY));  // 等 HSI 穩定
 
-    // 3. 對 M33 來說，64 MHz 夠用了（A35 用 PLL 跑更快）
+    // 3. 對 M33 來說，64 MHz 夠用了（A35 用 PLL（Phase-Locked Loop，鎖相迴路，時脈倍頻電路）跑更快）
     
     // 4. 啟用所需周邊的時鐘
     RCC->AHB2ENR |= RCC_AHB2ENR_HASHEN;  // HASH 加速器

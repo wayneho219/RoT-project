@@ -68,12 +68,12 @@ TF-A 使用 X.509 v3 憑證（DER 格式）：
 Certificate ::= {
     Version:         v3
     SerialNumber:    隨機
-    Issuer:          誰簽發的（Root CA DN）
+    Issuer:          誰簽發的（Root CA DN，Distinguished Name，識別名稱）
     Validity:        有效期（可以設很遠的未來）
     Subject:         被簽發的對象
     SubjectPublicKey: 這個憑證裡的公鑰
     Extensions:
-        TF-A 自訂 OID：
+        TF-A 自訂 OID（Object Identifier，物件識別碼，用來標記憑證擴充欄位的用途）：
           1.3.6.1.4.1.4128.2100.1 = Hash of Trusted Boot Firmware（BL2）
           1.3.6.1.4.1.4128.2100.3 = Hash of SoC AP Firmware（BL31）
           1.3.6.1.4.1.4128.2100.2 = Non-Trusted Firmware key（BL33 公鑰）
@@ -154,7 +154,7 @@ python3 tools/sign_firmware.py \
 
 # Step 4: 燒錄 ROTPKH 到 STM32MP2 OTP（只在開發板上做）
 # 使用 STM32CubeProgrammer
-STM32_Programmer_CLI -c port=SWD \
+STM32_Programmer_CLI -c port=SWD（Serial Wire Debug，ARM 雙線除錯/燒錄介面）\
   -otp fuse write 0 $(xxd -p rotpkh.bin | head -c 8)  # Word 0
 ```
 

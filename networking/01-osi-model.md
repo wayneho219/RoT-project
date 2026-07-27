@@ -29,6 +29,8 @@ OSI（Open Systems Interconnection）是**概念框架**，用來理解網路協
 ```
 各層中文說明：7 應用層（提供應用程式網路介面）、6 表示層（格式轉換/加密/壓縮）、5 會話層（連線管理）、4 傳輸層（端對端可靠傳輸）、3 網路層（邏輯定址/路由）、2 資料鏈結層（MAC 位址/錯誤偵測）、1 實體層（訊號/媒介）
 
+**圖中協定縮寫全名**：HTTP（HyperText Transfer Protocol）、HTTPS（HTTP Secure）、DNS（Domain Name System，網域名稱系統）、FTP（File Transfer Protocol）、TLS（Transport Layer Security）/SSL（Secure Sockets Layer，TLS 的前身）、RPC（Remote Procedure Call，遠端程序呼叫）、TCP（Transmission Control Protocol）、UDP（User Datagram Protocol）、IP（Internet Protocol）、ICMP（Internet Control Message Protocol）、MQTT（Message Queuing Telemetry Transport，詳見 networking/04-tls-and-mqtt.md）
+
 ### 記憶口訣（由下到上）
 
 ```
@@ -98,6 +100,8 @@ Layer 1 (Physical)
 
 ### TCP 三次握手
 
+SYN（Synchronize，同步序號）、ACK（Acknowledge，確認）、FIN（Finish，結束）都是 TCP 封包標頭裡的旗標位元：
+
 ```
 Client                    Server
   │  SYN (seq=x)           │
@@ -151,7 +155,7 @@ Client         Server
 
 ## DNS（域名解析）
 
-輸入 `api.example.com` → DNS 查詢（UDP port 53）→ Resolver → 若 cache 沒有 → Root → TLD → NS → 回傳 IP
+輸入 `api.example.com` → DNS 查詢（UDP port 53）→ Resolver → 若 cache 沒有 → Root → TLD（Top-Level Domain，頂層網域，如 .com）→ NS（Name Server，域名伺服器）→ 回傳 IP
 
 ```
 Browser: "api.example.com?"
@@ -171,7 +175,7 @@ Browser connects to 203.0.113.42:443
 
 ## 嵌入式常見的網路需求
 
-在 RoT 和嵌入式 Linux 裝置中，網路通常用於：
+在 RoT 和嵌入式 Linux 裝置中（IoT，Internet of Things，物聯網），網路通常用於：
 
 OTA 更新、遠端驗證、裝置管理的通訊示意：
 
@@ -202,7 +206,7 @@ OTA 更新、遠端驗證、裝置管理的通訊示意：
 | HTTP 和 HTTPS 的差別？ | HTTPS = HTTP + TLS（第 4/6 層加密）|
 | Ping 用什麼協定？ | ICMP（網路層，不是 TCP/UDP）|
 | Port 號在哪層？ | 第 4 層（Transport）|
-| 為什麼有了 IP 還需要 MAC？ | IP 是邏輯位址（可變）；MAC 是實體位址（燒在網卡）。同一個子網路用 MAC 通訊（ARP 解析）|
+| 為什麼有了 IP 還需要 MAC？ | IP 是邏輯位址（可變）；MAC 是實體位址（燒在網卡）。同一個子網路用 MAC 通訊（ARP，Address Resolution Protocol，位址解析協定）|
 
 ---
 

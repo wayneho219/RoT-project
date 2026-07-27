@@ -26,7 +26,7 @@ STM32MP215F-DK 上的 Cortex-M33 TD（Trusted Domain）：
 | Cache | L1/L2 | 通常無（或可選） |
 | MMU | 有（分頁式） | 無 |
 | MPU | 可選 | 有（最多 16 region）|
-| 中斷模型 | GIC | NVIC |
+| 中斷模型 | GIC（Generic Interrupt Controller，通用中斷控制器）| NVIC（詳見下方） |
 | 開機順序 | 需要 bootloader | 直接從 Flash vector 表 |
 
 ---
@@ -104,7 +104,7 @@ IDAU 優先於 SAU，可以強制把某些區域永遠是 Secure。
 ```
 結合規則：
 Secure   = SAU 說是 Secure  OR  IDAU 說是 Secure
-Non-Secure-Callable = SAU 說是 NSC
+Non-Secure-Callable = SAU 說是 NSC（Non-Secure Callable，詳見下方）
 Non-Secure = 其他
 ```
 
@@ -114,10 +114,11 @@ Non-Secure = 其他
 
 M33 TrustZone 的世界切換和 A35 不同，是函式呼叫層級的：
 
-### Secure → Non-Secure：BXNS / BLXNS
+### Secure → Non-Secure：BXNS（Branch and Exchange Non-Secure）/ BLXNS（Branch with Link and Exchange Non-Secure）
 
 ```c
 // 從 Secure code 呼叫 Non-Secure 函式
+// cmse（Cortex-M Security Extensions，ARMv8-M 的安全擴充指令集）
 typedef void (*NS_func)(void) __attribute__((cmse_nonsecure_call));
 
 NS_func ns_entry = (NS_func)(0x20010001); // LSB=1 表示 Thumb
@@ -173,7 +174,8 @@ void TIM2_IRQHandler(void) {
 }
 
 // 向量表位置（預設在 Flash 起點）
-SCB->VTOR = 0x20000000;  // 改到 SRAM（OTA 更新後搬新向量表用）
+// SCB（System Control Block）、VTOR（Vector Table Offset Register）：都是 Cortex-M 的系統周邊/暫存器
+SCB->VTOR = 0x20000000;  // 改到 SRAM（OTA，Over-The-Air，透過網路遠端更新後搬新向量表用）
 ```
 
 ---
@@ -198,10 +200,10 @@ Reset_Handler（startup.s）
       main()
         ├── 配置 SAU（劃分 Secure/NS 記憶體）
         ├── 配置 MPU（存取保護）
-        ├── 從 microSD（SDMMC1）讀取 A35 firmware header
-        ├── 計算 SHA-256
-        ├── 驗證 ECDSA 簽章
-        ├── 通過 → 寫 RCC 暫存器，release A35 reset
+        ├── 從 microSD（SDMMC1，SD/MultiMediaCard 控制器周邊 1）讀取 A35 firmware header
+        ├── 計算 SHA-256（Secure Hash Algorithm 256-bit，雜湊演算法，詳見 cryptography/01-hash.md）
+        ├── 驗證 ECDSA（Elliptic Curve Digital Signature Algorithm，橢圓曲線數位簽章演算法，詳見 cryptography/02-asymmetric.md）簽章
+        ├── 通過 → 寫 RCC（Reset and Clock Control，重置與時脈控制）暫存器，release A35 reset
         └── 失敗 → 鎖死（無限迴圈 / 關閉 A35）
 ```
 

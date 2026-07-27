@@ -57,8 +57,8 @@ while (*status_reg == 0) {
 | 情況 | 說明 |
 |------|------|
 | 硬體暫存器 | 硬體直接改記憶體位址的值 |
-| ISR（中斷服務程式） | 硬體觸發 CPU 跳去執行，再改變數 |
-| DMA | 獨立硬體單元直接搬運記憶體，不經過 CPU |
+| ISR（Interrupt Service Routine，中斷服務程式） | 硬體觸發 CPU（Central Processing Unit，中央處理器）跳去執行，再改變數 |
+| DMA（Direct Memory Access，直接記憶體存取） | 獨立硬體單元直接搬運記憶體，不經過 CPU |
 | 多核心共用記憶體 | 另一顆核心（如 A35）寫入，M33 讀取 |
 
 前三種都是「硬體觸發、不在編譯器掌控內的變動」，本質相同。
@@ -154,7 +154,7 @@ GPIOA->ODR   |= (1 << 5);
 0x08000000 ├────────────────────┤ ← Flash 開始
 ```
 
-這就是 ST 的 HAL library 的設計方式，整個 STM32 HAL 都是這個模式。
+這就是 ST 的 HAL（Hardware Abstraction Layer，硬體抽象層）library 的設計方式，整個 STM32 HAL 都是這個模式。
 
 ---
 
@@ -213,7 +213,7 @@ CONCAT(gpio, _init)  // → gpio_init（函式名）
 
 ---
 
-## `__attribute__` 修飾符（GCC/Clang）
+## `__attribute__` 修飾符（GCC（GNU Compiler Collection）/Clang）
 
 嵌入式常用，告訴編譯器特殊處理：
 

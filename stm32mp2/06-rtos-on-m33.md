@@ -97,7 +97,7 @@ typedef struct {
 QueueHandle_t xIPC_Queue;
 xIPC_Queue = xQueueCreate(8, sizeof(IPC_Message));  // 深度 8
 
-// ISR 中放入 queue（A35 觸發的中斷）
+// ISR 中放入 queue（A35 觸發的中斷，SWI = Software Interrupt，軟體觸發的中斷）
 void SWI_IRQHandler(void) {
     IPC_Message msg;
     msg.cmd = ipc_read_cmd();
@@ -140,7 +140,7 @@ void rot_read_secure_storage(void) {
 
 ## RTOS + TrustZone 的互動
 
-FreeRTOS 有支援 ARMv8-M TrustZone（FreeRTOS-Plus-POSIX 或 TFM）：
+FreeRTOS 有支援 ARMv8-M TrustZone（FreeRTOS-Plus-POSIX 或 TFM，Trusted Firmware-M，ARM 官方給 Cortex-M 的 TrustZone 韌體框架，概念上是 TF-A 在 M-profile 的對應版本）：
 
 ```c
 // Secure tasks 在 Secure World 執行

@@ -30,7 +30,7 @@ Baud Rate（鮑率）= 每秒傳幾個 bit
 非同步（無時鐘線）：雙方事先約定 Baud Rate（例如 115200 bps）
 全雙工：TX 和 RX 是獨立的線（可以同時收發）
 點對點：一對一通訊
-接腳：TX、RX（可選：RTS、CTS 硬體流量控制）
+接腳：TX、RX（可選：RTS（Request To Send）、CTS（Clear To Send）硬體流量控制）
 ```
 
 ### 訊框格式
@@ -41,7 +41,7 @@ IDLE  Start  D0  D1  D2  D3  D4  D5  D6  D7  Parity  Stop
      └─────┘  └──┘  └──┘  └──┘  └──┘        └──────
 ```
 - Start bit: 低電位（1 bit）
-- Data bits: 通常 8 bits，LSB 先送
+- Data bits: 通常 8 bits，LSB（Least Significant Bit，最低有效位元）先送
 - Parity bit: 可選（even/odd）
 - Stop bit: 高電位（1 or 2 bits）
 
@@ -97,10 +97,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 多從設備：每個 slave 有獨立的 CS（Chip Select）線
 速度：最高可達幾十 MHz（比 I2C 快）
 
-接腳：SCK、MOSI（Master Out Slave In）、MISO、CS（每個 slave 一條）
+接腳：SCK（Serial Clock，序列時鐘）、MOSI（Master Out Slave In）、MISO（Master In Slave Out）、CS（每個 slave 一條）
 ```
 
-### SPI 時序（Mode 0：CPOL=0, CPHA=0）
+### SPI 時序（Mode 0：CPOL=0（Clock Polarity，時鐘極性）, CPHA=0（Clock Phase，時鐘相位））
 
 ```
 CS   ─┐                                        ┌──
@@ -216,7 +216,7 @@ HAL_I2C_Mem_Read(&hi2c1, LM75_ADDR, 0x00, I2C_MEMADD_SIZE_8BIT,
 | 多設備 | 難（需要額外硬體）| CS 線增加 | 位址尋址 |
 | 速度 | 中（~5 Mbps）| 高（50+ Mbps）| 低（1 MHz max）|
 | 距離 | 中（~15 m with RS-232）| 短（板內）| 短（板內）|
-| 嵌入式用途 | Debug, BLE/GPS 模組 | Flash, LCD, 感測器 | PMIC, IMU, EEPROM |
+| 嵌入式用途 | Debug, BLE（Bluetooth Low Energy，低功耗藍牙）/GPS（Global Positioning System，全球定位系統）模組 | Flash, LCD, 感測器 | PMIC, IMU（Inertial Measurement Unit，慣性測量單元）, EEPROM（Electrically Erasable Programmable Read-Only Memory，電子可抹除唯讀記憶體）|
 
 ### STM32MP215F 應用
 

@@ -25,7 +25,7 @@ week: "9"
 
 ## ECC（橢圓曲線密碼學）基礎
 
-RSA 和 ECC 都是非對稱密碼，但 ECC 的優勢：
+RSA（Rivest–Shamir–Adleman，以三位發明者姓氏命名）和 ECC 都是非對稱密碼，但 ECC 的優勢：
 
 | | RSA-2048 | ECDSA-P256 |
 |-|---------|------------|
@@ -91,7 +91,7 @@ Public Key（Q）：Q = d × G（G 是曲線的固定基點）
 openssl ecparam -name prime256v1 -genkey -noout -out private_key.pem
 openssl ec -in private_key.pem -pubout -out public_key.pem
 
-# 提取 raw bytes（嵌入式用）
+# 提取 raw bytes（嵌入式用），DER（Distinguished Encoding Rules，ASN.1 的二進位編碼格式）
 openssl ec -in private_key.pem -outform DER | tail -c +8 | head -c 32 > private_key.bin
 openssl ec -in public_key.pem  -outform DER | tail -c +28 > public_key.bin  # 65 bytes（04 + x + y）
 ```

@@ -17,7 +17,7 @@ week: "5-6"
   A. OTP Fuses（BSEC）→ 只能存少量資料（128–256 bytes）
   B. Secure SRAM（揮發性，斷電消失）
   C. 加密後存入 microSD 的 Secure Storage partition（本專案做法）
-  D. 外部安全晶片（TPM、SE）→ 最安全，但本專案先不用
+  D. 外部安全晶片（TPM（Trusted Platform Module，可信任平台模組）、SE（Secure Element，安全元件晶片））→ 最安全，但本專案先不用
 ```
 
 ---
@@ -56,7 +56,7 @@ int bsec_write(uint32_t otp_word_idx, uint32_t value) {
 
 Private Key 不能明文存在儲存媒介。設計（板上無 microSD，使用 microSD）：
 
-microSD GPT 分割佈局（Secure Storage 在獨立 partition，加密 Key Blob 存於此）：
+microSD GPT（GUID Partition Table，硬碟分割表格式）分割佈局（Secure Storage 在獨立 partition，加密 Key Blob 存於此）：
 ```
   ┌──────────────────────────────────────────┐
   │ fsbl1 / fsbl2  BL2 (TF-A)               │ GPT partition
@@ -80,8 +80,8 @@ microSD GPT 分割佈局（Secure Storage 在獨立 partition，加密 Key Blob 
 
 > [!warning] HWKEY 不可讀取
 > HWKEY（OTP376-383）標記為 **No Access**：CPU 完全無法讀取，HAL API 也不例外。
-> HWKEY 透過內部 hardware wire 直接連接到 SAES 加速器，只有 SAES 可以使用。
-> 因此 `bsec_get_huk()` 這種「讀取 HUK 再做 HKDF」的模式在 STM32MP21 **不可行**。
+> HWKEY 透過內部 hardware wire 直接連接到 SAES（Secure AES，STM32 的硬體 AES 加密加速器）加速器，只有 SAES 可以使用。
+> 因此 `bsec_get_huk()` 這種「讀取 HUK 再做 HKDF（HMAC-based Key Derivation Function，以 HMAC 為基礎的金鑰衍生函式）」的模式在 STM32MP21 **不可行**。
 
 STM32MP21 正確的 HUK 使用方式：
 ```
@@ -96,7 +96,7 @@ HWKEY (OTP376-383, No Access, only SAES can use via HW wire)
 
 ---
 
-## AES-GCM 加密 Blob 格式
+## AES-GCM（Advanced Encryption Standard，進階加密標準 + Galois/Counter Mode，加密同時附帶完整性驗證的運作模式；詳見 cryptography/03-symmetric.md）加密 Blob 格式
 
 **nonce（Number used ONCE）是什麼：** AES-GCM 每次加密時需要一個隨機的 12-byte 數字，確保即使用同一把 key 加密兩次相同的明文，密文也不同。nonce 必須每次都不同，否則攻擊者可以比較兩次密文推算出 key。
 

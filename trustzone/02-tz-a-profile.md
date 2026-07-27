@@ -17,7 +17,7 @@ TZASC (TrustZone Address Space Controller)   <-- gatekeeper between CPU & DDR
   └── every DDR access passes through TZASC
       NS requests to Secure DDR regions are blocked
 
-RIFSC (Resource Isolation Framework SC)      <-- protects SRAM & peripherals
+RIFSC (Resource Isolation Framework Security Controller)      <-- protects SRAM & peripherals
   └── each peripheral can be set Secure-only or accessible by both Worlds
       (UART, SPI, RNG ...)
 
@@ -147,14 +147,14 @@ GICD->IGROUPR[1] |= (1 << USART2_IRQn); // Group 1 = Non-Secure
 
 ## RIFSC：Peripheral 安全屬性
 
-STM32MP21 的每個 peripheral 可以被標記為 Secure 或 Non-Secure（RIFSC 取代舊版 STM32MP1 的 ETZPC）：
+STM32MP21 的每個 peripheral 可以被標記為 Secure 或 Non-Secure（RIFSC 取代舊版 STM32MP1 的 ETZPC，Extended TrustZone Protection Controller）：
 
 ```c
 // RIFSC（Resource Isolation Framework Security Controller）
 // STM32MP21 使用 RIFSC 取代舊版 STM32MP1 的 ETZPC
 // Base: 0x42080000（NS）/ 0x52080000（S）
 
-// 讓 RNG 只有 Secure World 能用（HAL 概念，實際 API 見 STM32CubeMP2）
+// 讓 RNG（Random Number Generator，隨機數產生器）只有 Secure World 能用（HAL 概念，實際 API 見 STM32CubeMP2）
 HAL_RIFSC_SetPeriphAttributes(RIFSC_RNG_ID, RIFSC_PRIV_SECURE);
 
 // 讓 USART2 給 Normal World（A35 Linux 使用）
@@ -174,6 +174,7 @@ TF-A 在 BL2/BL31 的頁表中設定記憶體安全屬性：
 //   1 = Non-Secure
 
 // Secure 記憶體的頁表描述符（NS=0）
+// PTE：Page Table Entry，頁表項目
 uint64_t secure_mem_entry = pa | PTE_VALID | PTE_TABLE;
 // NS bit 不設 → Secure
 

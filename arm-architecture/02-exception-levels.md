@@ -29,10 +29,10 @@ EL0（最低特權）→ User space app（你的程式）
 
 ```
 Linux 概念：         ARM EL 對應：
+secure monitor  ↔   EL3（比 kernel 更高，管 TrustZone）
+hypervisor      ↔   EL2（管多個 OS，本專案不用）
 kernel space    ↔   EL1（可存取所有硬體暫存器）
 user space      ↔   EL0（只能用 syscall 請 kernel 幫忙）
-hypervisor      ↔   EL2（管多個 OS，本專案不用）
-secure monitor  ↔   EL3（比 kernel 更高，管 TrustZone）
 ```
 
 ARMv8-A 的特權模型：**EL** 決定軟體能做什麼，**Security State** 決定能看到什麼。
@@ -120,6 +120,36 @@ Non-Secure EL1（Linux）
 
 **SMC（Secure Monitor Call）**：Non-Secure 觸發世界切換的唯一方式。  
 就像 `syscall` 之於 user/kernel 切換，`SMC` 之於 NW/SW 切換。
+
+---
+
+## SMC 與 SMC handler
+
+**SMC 是什麼：** 一個 ARM 指令，任何 EL 執行它都會被硬體強制導向 EL3——跟 `SVC` 導向 EL1 是同一套機制，只是目標層級不同。
+
+```
+SVC    → EL0 請求 EL1（syscall，如 read()/write()）
+SMC    → 任何 EL 請求 EL3（secure monitor call）
+```
+
+**SMC handler 是什麼：** EL3（TF-A BL31）裡負責接住 SMC 這個異常、實際處理請求的程式碼。呼叫慣例遵循 ARM 的 SMCCC（SMC Calling Convention）：
+
+```
+X0 = function ID（決定要做什麼服務）
+X1-X6 = 參數
+X0 = 回傳值（EL3 處理完後放回去）
+```
+
+SMC handler 根據 function ID 分派到不同服務，常見的有：
+
+- **PSCI**：CPU on/off、系統開關機、CPU idle 狀態管理
+- **World switch**：切換到 Secure EL1（OP-TEE）或切回 Non-Secure
+- **廠商自訂 SiP call**：例如讀寫某些只有 EL3 能碰的暫存器
+
+> [!warning] 陷阱
+> SMC handler 是攻擊面——Non-Secure 世界可以主動觸發它。function ID 沒驗證好、參數沒檢查邊界，就是 Non-Secure 攻進 Secure World 的破口，這也是 RoT 設計要特別小心的地方。
+
+C# 角度理解：`SMC` 像呼叫一個你完全看不到原始碼、跑在更高權限進程裡的 API——你只能傳參數（暫存器）觸發呼叫，實際邏輯在對方（EL3 firmware）手上。
 
 ---
 

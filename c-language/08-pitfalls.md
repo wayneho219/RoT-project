@@ -106,7 +106,7 @@ conv.u = reg_value;
 float result = conv.f;  // 合法，union 允許用不同型別讀同一記憶體
 ```
 
-嵌入式常需要把暫存器值解釋成不同型別（例如把 ADC 原始值解釋成 IEEE754 float），要用 union 或 memcpy，不要直接轉型指標。
+嵌入式常需要把暫存器值解釋成不同型別（例如把 ADC（Analog-to-Digital Converter，類比數位轉換器）原始值解釋成 IEEE 754（IEEE，Institute of Electrical and Electronics Engineers，浮點數表示法標準）float），要用 union 或 memcpy，不要直接轉型指標。
 
 ### NULL Dereference
 
@@ -330,4 +330,4 @@ CFLAGS = -Wall -Wextra -Werror -std=c99
 > 2. Strict aliasing 是什麼？為什麼不能直接 `float *fp = (float *)&uint32_val;`？用 union 怎麼寫？
 > 3. 整數截斷如何成為安全漏洞？用 0x100000100 截斷成 `uint8_t` 的例子說明如何防護。
 
-下一步：→ `[[arm-architecture/01-armv8a-overview|ARM Architecture]]` 目錄
+下一步：→ [[arm-architecture/01-armv8a-overview|ARM Architecture]] 目錄

@@ -128,12 +128,12 @@ kill_pid(pid, SIGUSR1, 1);  // kernel 呼叫
 
 ---
 
-## Shared Memory（IPC）
+## Shared Memory（IPC，Inter-Process Communication，行程間通訊）
 
 User space 的 shared memory（和 M33 的共享記憶體概念不同）：
 
 ```c
-// POSIX shared memory（兩個 process 共享）
+// POSIX（Portable Operating System Interface，可攜式作業系統介面標準）shared memory（兩個 process 共享）
 // 不是 M33/A35 共享，而是兩個 Linux process 之間
 
 // Process 1（建立）
@@ -156,7 +156,7 @@ void *ipc = mmap(NULL, 4096, PROT_READ, MAP_SHARED, fd, 0);
 ## 中斷處理（Driver 觀點）
 
 ```c
-// M33 通知 A35：透過硬體中斷（或軟體中斷 EXTI）
+// M33 通知 A35：透過硬體中斷（或軟體中斷 EXTI，External Interrupt/Event Controller，STM32 的外部中斷控制器）
 
 // Driver 中申請中斷
 static irqreturn_t rot_irq_handler(int irq, void *dev_id) {

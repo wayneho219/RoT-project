@@ -141,10 +141,10 @@ HAL_HASH_SHA256_Start(&hhash,
 
 ---
 
-## HMAC：帶金鑰的 Hash
+## HMAC（Hash-based Message Authentication Code，以 Hash 為基礎的訊息認證碼）：帶金鑰的 Hash
 
 單純的 SHA-256 不防止**偽造**（任何人都能計算 hash）。  
-HMAC 加入金鑰，只有持有金鑰的人才能產生正確的 MAC：
+HMAC 加入金鑰，只有持有金鑰的人才能產生正確的 MAC（Message Authentication Code，訊息認證碼）：
 
 ```c
 // HMAC-SHA256

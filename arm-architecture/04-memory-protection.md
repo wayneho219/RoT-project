@@ -30,14 +30,14 @@ A35 用 MMU 給 Linux 做虛擬記憶體；M33 用 MPU 做基本存取保護。
 
 解法：給每個 process 一個「假的位址空間」（虛擬位址）
       OS 背後維護一張表（頁表），記錄虛擬 → 實體的對應
-      Process A 的 VA 0x400000 → 實體 0x80001000
+      Process A 的 VA（Virtual Address，虛擬位址）0x400000 → 實體 0x80001000
       Process B 的 VA 0x400000 → 實體 0x90002000
       互不干擾
 ```
 
 ```
 Process A 存取 VA 0x400000：
-  → MMU 查頁表 → 找到 PA 0x80001000 → 去 RAM 讀資料
+  → MMU 查頁表 → 找到 PA（Physical Address，實體位址）0x80001000 → 去 RAM 讀資料
 
 Process A 存取 VA 0x1000（沒有映射）：
   → MMU 查頁表 → 找不到 → Page Fault → OS 介入處理（通常是 crash）
@@ -192,7 +192,7 @@ Secure SRAM（SAU region, Secure）
 
 Non-Secure SRAM（SAU region, Non-Secure）
   ├── M33 Secure code 可以存取（Secure 可以看 NS 記憶體）
-  └── A35 可以存取（透過 AXI 匯流排）
+  └── A35 可以存取（透過 AXI（Advanced eXtensible Interface，ARM AMBA 匯流排協定）匯流排）
   
 共享記憶體設計原則：
   - A35 只能寫入 NS SRAM，M33 負責讀取並驗證
