@@ -23,3 +23,9 @@ yocto/build/
 
 # Obsidian Database 外掛暫存檔
 *.base
+
+# 大型二進位檔（規格書 PDF、簡報等，只用來跨機器傳輸，不進版控）
+*.pdf
+*.pptx
+*.heic
+*.HEIC
